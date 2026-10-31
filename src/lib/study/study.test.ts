@@ -546,3 +546,23 @@ describe("the inventory course: the staged solutions agree with the engine", () 
     for (const steps of [s.FIFO_PERIODIC_STEPS, s.FIFO_PERPETUAL_STEPS, s.WA_STEPS, s.MA_STEPS]) assert.ok(steps.length >= 6);
   });
 });
+
+describe("interactive lessons: a lesson's video", () => {
+  it("the file is on the site, its chapters are in order inside it, and a chapter's screen is one of the lesson's", async () => {
+    const { existsSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const withVideo = modules.filter((m) => m.video);
+    assert.ok(withVideo.some((m) => m.slug === "basics-intro"), "lesson 1 has its video");
+    for (const m of withVideo) {
+      const v = m.video!;
+      assert.ok(existsSync(join(process.cwd(), "public", v.src)), `${m.slug}: no file at public${v.src}`);
+      v.chapters.forEach((c, i) => {
+        assert.ok(c.at >= 0 && c.at < v.duration, `${m.slug}: chapter ${c.title} outside the video`);
+        if (i) assert.ok(c.at > v.chapters[i - 1].at, `${m.slug}: chapters out of order at ${c.title}`);
+        if (c.screen) assert.ok(m.screens.some((s) => s.id === c.screen), `${m.slug}: no screen ${c.screen}`);
+      });
+      const screens = v.chapters.flatMap((c) => (c.screen ? [c.screen] : []));
+      assert.equal(new Set(screens).size, screens.length, `${m.slug}: a screen has two chapters`);
+    }
+  });
+});

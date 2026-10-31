@@ -1,9 +1,11 @@
 "use client";
 
-import { BookOpenText, ClipboardPen, Flag, Sparkles } from "lucide-react";
+import { BookOpenText, ClipboardPen, Flag, PlayCircle, Sparkles } from "lucide-react";
 import { AnimatePresence, MotionConfig, motion } from "motion/react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { type ReactNode, Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { type ReactNode, Suspense, useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { createPortal } from "react-dom";
+import { VideoDrawer } from "@/components/video/video-drawer";
 import {
   clampPlace,
   markSeen,
@@ -20,11 +22,11 @@ import {
   subCount,
   xpOf,
 } from "@/lib/study/score";
-import type { StudyModule } from "@/lib/study/types";
+import type { LessonVideo, StudyModule } from "@/lib/study/types";
 import { BottomBar } from "./bottom-bar";
 import { StudyHeader } from "./header";
 import { JournalSimulator } from "./journal-simulator";
-import { LessonOpening } from "./lesson-opening";
+import { clock, LessonOpening } from "./lesson-opening";
 import { PracticeIntro } from "./practice-intro";
 import { resetTopic, updateTopic, useTopic } from "./progress-store";
 import { QuestionExercise } from "./question-exercise";
@@ -56,6 +58,17 @@ function AddressPlace({ module: m, onApply }: { module: StudyModule; onApply: ()
   }, [m, screenId, stepParam, onApply]);
   return null;
 }
+
+const noSubscribe = () => () => {};
+
+/** The lesson's video, as the site's player takes it. */
+const playable = (slug: string, v: LessonVideo) => ({
+  slug,
+  title: v.title,
+  videoUrl: v.src,
+  durationSeconds: v.duration,
+  chapters: v.chapters.map(({ at, title }) => ({ at, title })),
+});
 
 /** A concept screen's content, rendered on the server: the one principle it teaches, and the rest. */
 export type ScreenContent = { lead?: ReactNode; body: ReactNode };
@@ -96,6 +109,11 @@ export function StudyShell({ module: m, screens, next }: { module: StudyModule; 
     updateTopic(slug, (q) => ({ ...q, step: 0, sub }));
     window.history.replaceState(window.history.state, "", `${pathname}?screen=${screen}`);
   };
+  // The lesson's video, in a panel over the lesson: closed, or open at a second.
+  const [video, setVideo] = useState<{ open: boolean; at: number }>({ open: false, at: 0 });
+  const watch = (at = 0) => setVideo({ open: true, at });
+  // In the browser only: the panel goes to the page's body.
+  const mounted = useSyncExternalStore(noSubscribe, () => true, () => false);
   const heading = useRef<HTMLHeadingElement>(null);
   const body = useRef<HTMLDivElement>(null);
   const first = useRef(true);
@@ -173,7 +191,7 @@ export function StudyShell({ module: m, screens, next }: { module: StudyModule; 
   const forwarding = useRef(false);
   useEffect(() => {
     keys.current = (e) => {
-      if (forwarding.current || e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey || document.querySelector("dialog[open]")) return;
+      if (forwarding.current || e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey || document.querySelector("dialog[open], [aria-modal=true]")) return;
       if (e.key === "Escape") return router.push(m.backHref);
       if ((e.target as HTMLElement).closest("input, select, textarea, [contenteditable], [role=tablist], [role=radiogroup]")) return;
       // A step-by-step walkthrough on the screen takes the arrows first, wherever the focus is; past its ends they move the lesson.
@@ -197,7 +215,7 @@ export function StudyShell({ module: m, screens, next }: { module: StudyModule; 
   }, []);
 
   const id = STEPS[step].id;
-  let card: { icon: ReactNode; title: string; count?: string; content: ReactNode };
+  let card: { icon: ReactNode; title: string; count?: string; content: ReactNode; clip?: number };
   if (opening) {
     card = {
       icon: <Sparkles className="h-5 w-5" />,
@@ -208,6 +226,7 @@ export function StudyShell({ module: m, screens, next }: { module: StudyModule; 
           progress={p}
           onStart={enter}
           onTool={openTool}
+          onVideo={m.video ? watch : undefined}
           onRestart={() => {
             restart();
             setOpening(false);
@@ -221,6 +240,7 @@ export function StudyShell({ module: m, screens, next }: { module: StudyModule; 
       icon: <BookOpenText className="h-5 w-5" />,
       title: m.screens[place.sub].title,
       count: m.screens.length > 1 ? `מושג ${place.sub + 1} מתוך ${m.screens.length}` : undefined,
+      clip: m.video?.chapters.find((c) => c.screen === m.screens[place.sub].id)?.at,
       content: (
         <div className="space-y-4">
           {s.lead && <div className="rounded-2xl border border-accent/25 bg-accent-soft px-4 py-3.5 text-[16px] font-semibold leading-relaxed text-fg sm:px-5">{s.lead}</div>}
@@ -292,6 +312,8 @@ export function StudyShell({ module: m, screens, next }: { module: StudyModule; 
     };
   }
 
+  const clip = card.clip;
+
   // The opening already offers to resume or restart; the reminder is for an arrival that skipped it.
   const resumable = !opening && !moved && (p.step > 0 || p.sub > 0);
 
@@ -315,6 +337,17 @@ export function StudyShell({ module: m, screens, next }: { module: StudyModule; 
                 <h1 ref={heading} tabIndex={-1} className="min-w-0 flex-1 truncate text-[17px] font-semibold text-fg outline-none sm:text-lg">
                   {card.title}
                 </h1>
+                {clip !== undefined && (
+                  <button
+                    type="button"
+                    onClick={() => watch(clip)}
+                    className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg bg-[#fbbf24] px-2.5 text-[13px] font-bold text-[#3b2600] transition hover:brightness-105"
+                    title="הקטע בסרטון שמסביר את המושג הזה"
+                  >
+                    <PlayCircle className="h-4 w-4" aria-hidden />
+                    <span className="max-sm:hidden">בסרטון ·</span> <span className="num">{clock(clip)}</span>
+                  </button>
+                )}
                 {card.count && <span className="num shrink-0 rounded-md bg-surface-2 px-2 py-0.5 text-[12px] font-semibold text-muted">{card.count}</span>}
               </div>
               {resumable && (
@@ -352,6 +385,13 @@ export function StudyShell({ module: m, screens, next }: { module: StudyModule; 
           <BottomBar step={step} first={opening} last={last && !opening} onPrev={prevScreen} onNext={nextScreen} onJump={(i) => i !== step && go({ step: i, sub: 0 }, i > step ? 1 : -1)} />
         </div>
       </LessonContext>
+      {/* Over the whole page, not inside the moving card: a transformed ancestor would hold a fixed panel in place. */}
+      {mounted &&
+        m.video &&
+        createPortal(
+          <VideoDrawer item={playable(m.slug, m.video)} startAt={video.at} open={video.open} onClose={() => setVideo((v) => ({ ...v, open: false }))} label="סרטון השיעור" fullLesson={false} />,
+          document.body,
+        )}
     </MotionConfig>
   );
 }

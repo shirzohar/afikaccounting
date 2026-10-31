@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, Calculator, Check, ChevronsLeft, ChevronsRight, CircleCheck, RotateCcw, Star } from "lucide-react";
+import { ArrowLeft, Calculator, Check, ChevronsLeft, ChevronsRight, CircleCheck, PlayCircle, RotateCcw, Star } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
@@ -9,6 +9,7 @@ import type { StudyModule } from "@/lib/study/types";
 import { studyHref } from "@/lib/study";
 import { lessonHref } from "@/lib/study/paths";
 import { cn } from "@/lib/utils";
+import { clock } from "./lesson-opening";
 import { updateTopic, useTopics } from "./progress-store";
 
 /**
@@ -128,6 +129,11 @@ function Spotlight({
           {m.title}
         </h2>
         <p className="text-[15px] leading-relaxed text-[#c4cfe4]">{m.description}</p>
+        {m.video && (
+          <p className="num flex items-center gap-1.5 text-[14px] font-semibold text-[#ffc93c]">
+            <PlayCircle className="h-4 w-4" aria-hidden /> כולל סרטון של {clock(m.video.duration)} דק׳ — בפתיחת השיעור
+          </p>
+        )}
         <div className="mt-2 flex flex-wrap items-center gap-3">
           <Link href={studyHref(m.slug)} prefetch className="inline-flex h-12 items-center gap-2.5 rounded-xl bg-[#4f8bff] px-6 text-[15px] font-bold text-[#04112b] transition hover:brightness-110">
             {started ? "להמשיך מאיפה שעצרתי" : "להתחיל את השיעור"} <ArrowLeft className="h-4 w-4" aria-hidden />
@@ -219,6 +225,11 @@ function LessonRow({ module: m, progress: p, status }: { module: StudyModule; pr
         </h2>
         <p className="num mt-0.5 text-sm text-muted">
           {m.screens.length} מושגים · {m.exercises.length + m.traps.length} שאלות תרגול
+          {m.video && (
+            <span className="ms-2 inline-flex items-center gap-1 rounded-full bg-amber-400/15 px-2 py-0.5 text-[12px] font-semibold text-amber-700 dark:text-amber-300">
+              <PlayCircle className="h-3.5 w-3.5" aria-hidden /> סרטון {clock(m.video.duration)}
+            </span>
+          )}
         </p>
       </div>
       <span
