@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useActionState } from "react";
+import { TrackEvent } from "@/components/layout/track-event";
 import { FormAlert, SubmitButton, TextField } from "@/components/ui/form";
 import { requestPasswordReset, signIn, signUp, updatePassword } from "@/lib/actions/auth";
 import type { FormState } from "@/lib/actions/types";
@@ -42,12 +43,22 @@ export function LoginForm() {
   );
 }
 
+/** Reads ?plan= from the URL: the plan chosen on the pricing page, kept on the new account. */
 export function RegisterForm() {
+  const plan = useSearchParams().get("plan") ?? "";
   const [state, action] = useActionState(signUp, initial);
-  if (state.ok) return <FormAlert message={state.message} />;
+  if (state.ok)
+    return (
+      <>
+        {/* Signed up, waiting on the email link. (Signed straight in, the dashboard records it.) */}
+        <TrackEvent event={{ kind: "signup", meta: { plan: plan || "free", confirm: true } }} />
+        <FormAlert message={state.message} />
+      </>
+    );
   const err = state.fieldErrors ?? {};
   return (
     <form action={action} className="space-y-4" noValidate>
+      <input type="hidden" name="plan" value={plan} />
       <FormAlert error={state.error} />
       <TextField
         label="שם מלא"
@@ -59,7 +70,7 @@ export function RegisterForm() {
         autoFocus
       />
       <TextField
-        label="אימייל בעבודה"
+        label="אימייל"
         name="email"
         type="email"
         autoComplete="email"
@@ -83,7 +94,7 @@ export function RegisterForm() {
         יצירת חשבון
       </SubmitButton>
       <p className="text-center text-xs leading-relaxed text-subtle">
-        ביצירת החשבון אתם מאשרים שהתוצאות הן לצורכי לימוד ואינן מהוות ייעוץ מקצועי.
+        ביצירת החשבון אתם מאשרים שהתכנים הם לצורכי לימוד ואינם מהווים ייעוץ מקצועי.
       </p>
     </form>
   );

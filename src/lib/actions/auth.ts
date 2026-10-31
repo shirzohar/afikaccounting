@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser, safeNext } from "@/lib/auth/dal";
 import { SITE_URL, isSupabaseConfigured } from "@/lib/env";
+import { isTier } from "@/lib/pricing";
 import { createClient } from "@/lib/supabase/server";
 import { EMAIL_RE, type FormState, passwordProblem } from "./types";
 
@@ -17,6 +18,8 @@ export async function signUp(_prev: FormState, fd: FormData): Promise<FormState>
   const fullName = field(fd, "fullName");
   const email = field(fd, "email").toLowerCase();
   const password = String(fd.get("password") ?? "");
+  // The plan chosen on the pricing page, if they came from there: kept on the account until payment opens.
+  const plan = fd.get("plan");
   const values = { fullName, email };
 
   const fieldErrors: Record<string, string> = {};
@@ -33,14 +36,14 @@ export async function signUp(_prev: FormState, fd: FormData): Promise<FormState>
     email,
     password,
     options: {
-      data: { full_name: fullName },
+      data: { full_name: fullName, ...(isTier(plan) && plan !== "free" ? { plan } : {}) },
       emailRedirectTo: `${SITE_URL}/auth/confirm?next=/dashboard`,
     },
   });
   if (error) return { error: error.message, values };
 
   // With email confirmation off, Supabase returns a session immediately.
-  if (data.session) redirect("/dashboard");
+  if (data.session) redirect("/dashboard?welcome=1");
   return { ok: true, message: `שלחנו קישור אימות לכתובת ${email}. יש לפתוח אותו כדי להפעיל את החשבון.` };
 }
 

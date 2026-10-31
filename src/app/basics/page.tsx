@@ -2,6 +2,7 @@ import { Library } from "lucide-react";
 import type { Metadata } from "next";
 import { BasicsReference } from "@/components/basics/final";
 import { Breadcrumbs } from "@/components/layout/breadcrumbs";
+import { ExamsSection } from "@/components/pricing/exams-teaser";
 import { CoursePath, LegacyHashRedirect } from "@/components/study-mode/course";
 import { Container } from "@/components/ui/primitives";
 import { BASICS_LESSONS, LEGACY_CHAPTERS, legacyHref } from "@/lib/study/basics";
@@ -50,6 +51,8 @@ export default function BasicsPage() {
             <BasicsReference />
           </div>
         </section>
+
+        <ExamsSection />
       </Container>
     </div>
   );

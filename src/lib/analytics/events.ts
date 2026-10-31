@@ -4,7 +4,22 @@
  * random per-tab session id, never the account, unless the visitor is signed in.
  */
 
-export const EVENT_KINDS = ["page_view", "calc_run", "calc_invalid", "download", "video_play", "preset_load"] as const;
+export const EVENT_KINDS = [
+  "page_view",
+  "calc_run",
+  "calc_invalid",
+  "download",
+  "video_play",
+  "preset_load",
+  // The funnel: home page → lesson 1 → sign-up → free course done → paywall → pricing → a plan.
+  "landing_view",
+  "lesson_start",
+  "signup",
+  "course_complete",
+  "paywall_view",
+  "pricing_view",
+  "plan_click",
+] as const;
 export type EventKind = (typeof EVENT_KINDS)[number];
 
 export const VIDEO_SOURCES = ["upload", "youtube", "vimeo", "demo", "external"] as const;

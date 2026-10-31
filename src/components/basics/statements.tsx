@@ -715,10 +715,12 @@ function SummaryChapter() {
   );
 }
 
-export function StatementsChapters() {
+/** The page's chapters, in order; `part` splits off the first (the free taste) from the rest. */
+export function StatementsChapters({ part }: { part?: "first" | "rest" }) {
+  if (part === "first") return <FrameworkChapter />;
   return (
     <>
-      <FrameworkChapter />
+      {part !== "rest" && <FrameworkChapter />}
       <QualitiesChapter />
       <ConceptsChapter />
       <SetChapter />

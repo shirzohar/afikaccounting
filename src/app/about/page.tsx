@@ -1,31 +1,32 @@
-import { ArrowLeft, BookMarked, Calculator, GraduationCap, ShieldCheck } from "lucide-react";
+import { ArrowLeft, BookOpenText, ClipboardPen, Gift, Route } from "lucide-react";
 import type { Metadata } from "next";
 import { ButtonLink } from "@/components/ui/button";
 import { Container } from "@/components/ui/primitives";
+import { FIRST_LESSON } from "@/lib/catalog";
 import { site } from "@/lib/site";
 
 export const metadata: Metadata = { title: "אודות", description: site.description };
 
 const PILLARS = [
   {
-    icon: Calculator,
-    title: "תקינה כקוד",
-    body: "כל מחשבון מקודד את כללי המדידה של התקן. כל פקודת יומן נבדקת לאיזון עוד לפני שתראו אותה.",
+    icon: BookOpenText,
+    title: "רעיון אחד בכל פעם",
+    body: "כל מסך מלמד מושג אחד, עם דוגמה חיה שאפשר לשחק בה. לא עוברים הלאה לפני שהבסיס יושב.",
   },
   {
-    icon: BookMarked,
-    title: "הנמקה, לא רק תוצאות",
-    body: "התוצאות מפנות לסעיפים שעליהם הן נשענות ומסבירות את שיקולי הדעת, כך שתוכלו להגן על המספר בביקורת.",
+    icon: ClipboardPen,
+    title: "תרגול שמסביר את הטעות",
+    body: "משוב מיידי על כל תשובה — ועל כל תשובה שגויה, למה היא מפתה. ככה לומדים לזהות את המלכודות לפני המבחן.",
   },
   {
-    icon: GraduationCap,
-    title: "למידה בהקשר",
-    body: "השיעורים מחולקים לפרקים שממופים לשדות האשף. נתקעתם במתג? צפו בדקה שמסבירה אותו.",
+    icon: Route,
+    title: "תמיד יודעים איפה אתם",
+    body: "מסלול לכל קורס, XP על כל שיעור ושאלות שכדאי לתרגל שוב. ההתקדמות נשמרת בדפדפן, וממשיכים בדיוק מאיפה שעצרתם.",
   },
   {
-    icon: ShieldCheck,
-    title: "המידע שלכם נשאר שלכם",
-    body: "התרחישים השמורים וההיסטוריה מוגנים באבטחה ברמת השורה: רק אתם יכולים לקרוא או לשנות אותם.",
+    icon: Gift,
+    title: "הבסיס פתוח לכולם",
+    body: "חשבונאות מאפס — כל הקורס — בחינם. הקורסים המתקדמים ומתחם המבחנים במנוי, והשיעור הראשון בכל אחד מהם פתוח.",
   },
 ];
 
@@ -35,12 +36,11 @@ export default function AboutPage() {
       <div className="max-w-3xl">
         <p className="text-xs font-semibold text-accent">אודות {site.name}</p>
         <h1 className="mt-3 text-4xl font-semibold tracking-tight text-fg sm:text-5xl">
-          נבנה לרואי חשבון שצריכים את ה<span className="text-gradient">למה</span> לא פחות מהמספר.
+          חשבונאות שלומדים <span className="text-gradient">צעד אחר צעד</span>, עד המבחן.
         </h1>
         <p className="mt-5 text-[17px] leading-relaxed text-muted">
-          {site.name} משלבת מנוע פתרונות מבוסס תקינה עם ספריית שיעורים של מומחים. היא מיועדת לצוותי דיווח כספי,
-          למבקרים, לסטודנטים המתכוננים לבחינות המקצועיות ולכל מי שצריך להפוך חוזה לרישומים ולבאורים התואמים את
-          התקינה.
+          {site.name} נבנתה לסטודנטים: מי שפוגש חובה וזכות בפעם הראשונה, ומי שמתכונן למבחן במלאי, ברכוש קבוע או בדוחות כספיים. במקום הרצאה ארוכה — שיעורים קצרים, תרגול עם משוב
+          מיידי, וכלים שמראים את כל הדרך עד המספר.
         </p>
       </div>
 
@@ -58,11 +58,11 @@ export default function AboutPage() {
 
       <div className="glass mt-14 flex flex-col items-start gap-5 rounded-3xl p-8 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-lg font-semibold text-fg">נסו על תרחיש אמיתי</p>
-          <p className="mt-1 text-sm text-muted">אין צורך בחשבון כדי להפעיל את המנוע. הרשמה מאפשרת לשמור את העבודה.</p>
+          <p className="text-lg font-semibold text-fg">הדרך הכי טובה להבין — לנסות</p>
+          <p className="mt-1 text-sm text-muted">שיעור 1 פתוח עכשיו, בלי הרשמה.</p>
         </div>
-        <ButtonLink href="/engine" size="lg">
-          הפעלת המנוע החשבונאי <ArrowLeft className="h-4 w-4" />
+        <ButtonLink href={FIRST_LESSON} size="lg">
+          התחילו את שיעור 1 <ArrowLeft className="h-4 w-4" />
         </ButtonLink>
       </div>
     </Container>

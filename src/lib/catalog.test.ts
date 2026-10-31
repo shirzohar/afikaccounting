@@ -53,7 +53,7 @@ describe("the site map", () => {
     }
   });
   it("every topic and every learning page is in the menu", () => {
-    const learn = site.nav.find((i) => "items" in i && i.label === "לימוד");
+    const learn = site.nav.find((i) => "items" in i && i.label === "קורסים");
     assert.ok(learn && "items" in learn);
     const hrefs = new Set(learn.items.map((i) => i.href));
     for (const s of LEARNING_PATH) for (const t of s.topics) for (const p of t.pages ?? [{ href: t.href }]) assert.ok(hrefs.has(p.href), p.href);
@@ -75,8 +75,33 @@ describe("the site map", () => {
     for (const m of Object.values(STUDY_MODULES)) assert.ok(topics.some((t) => t.href === m.backHref), `lesson ${m.slug}: no topic at ${m.backHref}`);
     for (const t of topics.filter((x) => x.lesson)) assert.ok(Object.values(STUDY_MODULES).some((m) => studyHref(m.slug) === t.lesson && m.backHref === t.href), `${t.id}: no lesson ${t.lesson}`);
   });
+  it("the free course comes first, whole; every paid topic opens its first lesson or chapter as a taste", () => {
+    const topics = LEARNING_PATH.flatMap((s) => s.topics);
+    assert.equal(topics[0].tier, "free");
+    for (const t of topics) {
+      const lessons = Object.values(STUDY_MODULES).filter((m) => m.backHref === t.href);
+      assert.equal(t.format === "lessons", lessons.length > 0, `${t.id}: format`);
+      if (t.tier === "free") {
+        assert.deepEqual(t.preview, [], `${t.id}: a free topic needs no preview`);
+        continue;
+      }
+      assert.equal(t.preview.length, 1, `${t.id}: one free taste`);
+      if (t.format === "lessons") assert.equal(STUDY_MODULES[t.preview[0]]?.n, 1, `${t.id}: the taste is lesson 1`);
+      else {
+        const page = readFileSync(join(APP, ...t.href.split("/").filter(Boolean), "page.tsx"), "utf8");
+        // Chapter ids, in the page's order (a part of the page, "…-part", is not a chapter).
+        const chapters = [...page.matchAll(/id: "([\w-]+)"/g)].map((m) => m[1]).filter((id) => !id.endsWith("-part"));
+        assert.ok(chapters.length && chapters[0] === t.preview[0], `${t.id}: the taste ${t.preview[0]} is the page's first chapter (${chapters[0]})`);
+      }
+    }
+  });
+  it("every topic in the menu carries its plan", () => {
+    const learn = site.nav.find((i) => "items" in i && i.label === "קורסים");
+    assert.ok(learn && "items" in learn);
+    for (const i of learn.items) assert.ok(i.tier, i.href);
+  });
   it("every learning calculator is in the calculators menu", () => {
-    const tools = site.nav.find((i) => "items" in i && i.label === "מחשבונים");
+    const tools = site.nav.find((i) => "items" in i && i.label === "כלים");
     assert.ok(tools && "items" in tools);
     const hrefs = new Set(tools.items.map((i) => i.href));
     for (const t of [...LEARNING_TOOLS, ...ENGINE_TOOLS]) assert.ok(hrefs.has(t.href), t.href);

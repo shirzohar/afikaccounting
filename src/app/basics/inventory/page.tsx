@@ -3,7 +3,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { InventoryReference } from "@/components/basics/inventory-exam";
 import { Breadcrumbs } from "@/components/layout/breadcrumbs";
-import { CoursePath, LegacyHashRedirect } from "@/components/study-mode/course";
+import { ExamsSection } from "@/components/pricing/exams-teaser";
+import { GatedCoursePath } from "@/components/pricing/gated-course";
+import { LegacyHashRedirect } from "@/components/study-mode/course";
 import { Container } from "@/components/ui/primitives";
 import { INVENTORY_LEGACY_CHAPTERS, INVENTORY_LESSONS, inventoryLegacyHref } from "@/lib/study/inventory";
 
@@ -44,7 +46,7 @@ export default function InventoryPage() {
         </p>
 
         <div className="mt-6">
-          <CoursePath lessons={INVENTORY_LESSONS} />
+          <GatedCoursePath lessons={INVENTORY_LESSONS} />
         </div>
 
         <section id="reference" aria-labelledby="reference-title" className="mt-14 scroll-mt-24">
@@ -56,6 +58,8 @@ export default function InventoryPage() {
             <InventoryReference />
           </div>
         </section>
+
+        <ExamsSection />
       </Container>
     </div>
   );

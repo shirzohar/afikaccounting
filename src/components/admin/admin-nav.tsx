@@ -1,6 +1,6 @@
 "use client";
 
-import { FileStack, Gauge, Layers, type LucideIcon, Newspaper, Settings } from "lucide-react";
+import { BadgeCheck, FileStack, Gauge, Layers, type LucideIcon, Newspaper, Settings } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -10,6 +10,7 @@ const ITEMS: { href: string; label: string; icon: LucideIcon }[] = [
   { href: "/admin/media", label: "קבצים ומדיה", icon: FileStack },
   { href: "/admin/content", label: "ניהול תוכן", icon: Newspaper },
   { href: "/admin/presets", label: "תרחישים מוכנים", icon: Layers },
+  { href: "/admin/subscriptions", label: "מנויים", icon: BadgeCheck },
   { href: "/admin/settings", label: "הגדרות", icon: Settings },
 ];
 

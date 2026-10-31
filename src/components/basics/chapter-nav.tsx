@@ -17,10 +17,11 @@ export function ChapterNav({ chapters }: { chapters: ChapterLink[] }) {
   const [read, setRead] = useState(0);
 
   useEffect(() => {
-    const sections = [...document.querySelectorAll<HTMLElement>("[data-chapter]")];
     let current = "";
     // The current chapter is the last one whose top has passed the upper third of the screen.
+    // Looked up on every scroll: chapters behind a boundary can stream in after the nav mounts.
     const onScroll = () => {
+      const sections = [...document.querySelectorAll<HTMLElement>("[data-chapter]")];
       const line = window.innerHeight * 0.3;
       const hit = sections.filter((el) => el.getBoundingClientRect().top <= line).at(-1) ?? sections[0];
       const id = hit?.dataset.chapter;

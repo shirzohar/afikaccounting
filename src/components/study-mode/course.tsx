@@ -1,9 +1,12 @@
 "use client";
 
-import { ArrowLeft, Calculator, Check, ChevronsLeft, ChevronsRight, CircleCheck, PlayCircle, RotateCcw, Star } from "lucide-react";
+import { ArrowLeft, Calculator, Check, ChevronsLeft, ChevronsRight, CircleCheck, Lock, PlayCircle, RotateCcw, Star } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { type ComponentProps, useEffect, useState } from "react";
+import { Modal } from "@/components/admin/modal";
+import { Paywall } from "@/components/pricing/paywall";
+import { TierBadge } from "@/components/pricing/tier-badge";
 import { maxXp, pathStatus, type TopicProgress, xpOf } from "@/lib/study/score";
 import type { StudyModule } from "@/lib/study/types";
 import { studyHref } from "@/lib/study";
@@ -19,9 +22,18 @@ import { updateTopic, useTopics } from "./progress-store";
  * skipped: the spotlight moves on, and the lesson waits on the path — and the
  * spotlight can go back to the lesson before it. A lesson's tools (a
  * calculator) open straight from its place on the path.
+ *
+ * In a paid course, for a reader whose plan doesn't open it, `locked` lessons
+ * stay in their place with a lock and the plan's tag, and open the paywall
+ * instead; `previews` (the free taste) are tagged free. Without them, the path
+ * is the same for everyone.
  */
-export function CoursePath({ lessons }: { lessons: StudyModule[] }) {
+export function CoursePath({ lessons, locked = [], previews = [] }: { lessons: StudyModule[]; locked?: string[]; previews?: string[] }) {
   const topics = useTopics(lessons.map((m) => m.slug));
+  const [paywall, setPaywall] = useState<StudyModule | null>(null);
+  const gate = (m: StudyModule): Gate | undefined =>
+    locked.includes(m.slug) ? { locked: true, open: () => setPaywall(m) } : previews.includes(m.slug) ? { locked: false } : undefined;
+  const taste = lessons.find((m) => previews.includes(m.slug));
   const rows = lessons.map((m) => ({ m, p: topics[m.slug], status: pathStatus(m, topics[m.slug]) }));
   const done = rows.filter((r) => r.status === "done").length;
   const xp = rows.reduce((s, r) => s + xpOf(r.m, r.p), 0);
@@ -83,11 +95,11 @@ export function CoursePath({ lessons }: { lessons: StudyModule[] }) {
               </div>
               <div className="min-w-0 flex-1 pb-5">
                 {spotlight ? (
-                  <Spotlight module={r.m} progress={r.p} started={r.status === "started"} total={rows.length} prev={rows[i - 1]} />
+                  <Spotlight module={r.m} progress={r.p} started={r.status === "started"} total={rows.length} prev={rows[i - 1]} gate={gate(r.m)} />
                 ) : (
                   <>
-                    <LessonRow module={r.m} progress={r.p} status={r.status} />
-                    <Tools module={r.m} className="mt-1.5 ps-4 sm:ps-5" />
+                    <LessonRow module={r.m} progress={r.p} status={r.status} gate={gate(r.m)} />
+                    <Tools module={r.m} className="mt-1.5 ps-4 sm:ps-5" gate={gate(r.m)} />
                   </>
                 )}
               </div>
@@ -95,7 +107,49 @@ export function CoursePath({ lessons }: { lessons: StudyModule[] }) {
           );
         })}
       </ol>
+      {locked.length > 0 && (
+        <Modal open={!!paywall} title="קורס מלא" onClose={() => setPaywall(null)} wide>
+          {paywall && (
+            <Paywall
+              title={`שיעור ${paywall.n}: ${paywall.title}`}
+              course={paywall.course}
+              where={studyHref(paywall.slug)}
+              taste={taste && { href: studyHref(taste.slug), label: `לשיעור ${taste.n} — בחינם` }}
+            />
+          )}
+        </Modal>
+      )}
     </>
+  );
+}
+
+/** A lesson's place in a paid course, for a reader without the plan: locked (opens the paywall), or the free taste. */
+type Gate = { locked: true; open: () => void } | { locked: false };
+
+/** The lock and the plan's tag beside a lesson's title; "free" on the taste. */
+function GateMark({ gate, dark }: { gate?: Gate; dark?: boolean }) {
+  if (!gate) return null;
+  if (!gate.locked) return <TierBadge tier="free" label="חינם" className="align-middle" />;
+  return (
+    <span className="inline-flex items-center gap-1.5 align-middle">
+      <Lock className={cn("h-4 w-4", dark ? "text-[#93b4ff]" : "text-muted")} aria-label="נעול" />
+      <TierBadge tier="courses" icon={false} />
+    </span>
+  );
+}
+
+/** A link into the lesson; for a locked lesson, a button with the same look that opens the paywall. `block` stretches the button the full width, as the link's row does. */
+function LessonLink({ gate, block, href, className, children, ...props }: { gate?: Gate; block?: boolean } & ComponentProps<typeof Link>) {
+  if (gate?.locked)
+    return (
+      <button type="button" onClick={gate.open} className={cn(className, "text-start", block && "w-full")} aria-haspopup="dialog">
+        {children}
+      </button>
+    );
+  return (
+    <Link href={href} className={className} {...props}>
+      {children}
+    </Link>
   );
 }
 
@@ -106,11 +160,13 @@ function Spotlight({
   started,
   total,
   prev,
+  gate,
 }: {
   module: StudyModule;
   progress: TopicProgress;
   started: boolean;
   total: number;
+  gate?: Gate;
   /** The lesson before this one: skipped, it comes back into the spotlight; done, it opens. */
   prev?: { m: StudyModule; status: ReturnType<typeof pathStatus> };
 }) {
@@ -127,6 +183,7 @@ function Spotlight({
         </p>
         <h2 id={`lesson-${m.slug}`} className="text-2xl leading-tight font-bold sm:text-3xl">
           {m.title}
+          {gate && <> <GateMark gate={gate} dark /></>}
         </h2>
         <p className="text-[15px] leading-relaxed text-[#c4cfe4]">{m.description}</p>
         {m.videos?.length ? (
@@ -135,9 +192,9 @@ function Spotlight({
           </p>
         ) : null}
         <div className="mt-2 flex flex-wrap items-center gap-3">
-          <Link href={studyHref(m.slug)} prefetch className="inline-flex h-12 items-center gap-2.5 rounded-xl bg-[#4f8bff] px-6 text-[15px] font-bold text-[#04112b] transition hover:brightness-110">
+          <LessonLink gate={gate} href={studyHref(m.slug)} prefetch className="inline-flex h-12 items-center gap-2.5 rounded-xl bg-[#4f8bff] px-6 text-[15px] font-bold text-[#04112b] transition hover:brightness-110">
             {started ? "להמשיך מאיפה שעצרתי" : "להתחיל את השיעור"} <ArrowLeft className="h-4 w-4" aria-hidden />
-          </Link>
+          </LessonLink>
           {prev &&
             (prev.status === "skipped" ? (
               <button type="button" onClick={() => updateTopic(prev.m.slug, (q) => ({ ...q, skipped: false }))} className={back}>
@@ -159,7 +216,7 @@ function Spotlight({
             {xpOf(m, p)}/{maxXp(m)} XP
           </span>
         </div>
-        <Tools module={m} spotlight />
+        <Tools module={m} spotlight gate={gate} />
       </div>
       <div className="flex min-w-0 flex-[1_1_15rem] flex-col gap-2.5 rounded-2xl bg-white/[0.06] p-4 sm:p-5">
         <p className="text-[13px] font-semibold text-[#a9b7d1]">מה יש בשיעור</p>
@@ -193,13 +250,14 @@ function videoLine(m: StudyModule) {
 }
 
 /** A lesson's tools, each a link straight to its screen — no need to go through the lesson first. */
-function Tools({ module: m, spotlight, className }: { module: StudyModule; spotlight?: boolean; className?: string }) {
+function Tools({ module: m, spotlight, className, gate }: { module: StudyModule; spotlight?: boolean; className?: string; gate?: Gate }) {
   if (!m.tools?.length) return null;
   return (
     <div className={cn("flex flex-wrap gap-2", className)}>
       {m.tools.map((t) => (
-        <Link
+        <LessonLink
           key={t.screen}
+          gate={gate}
           href={lessonHref(m.slug, t.screen)}
           prefetch
           className={cn(
@@ -208,17 +266,19 @@ function Tools({ module: m, spotlight, className }: { module: StudyModule; spotl
           )}
         >
           <Calculator className="h-4 w-4" aria-hidden /> ישר ל{t.label}
-        </Link>
+        </LessonLink>
       ))}
     </div>
   );
 }
 
 /** Any other lesson: one row, the whole of it a link in. A skipped lesson waits here, dashed; opening it takes it back. */
-function LessonRow({ module: m, progress: p, status }: { module: StudyModule; progress: TopicProgress; status: "new" | "started" | "done" | "skipped" }) {
+function LessonRow({ module: m, progress: p, status, gate }: { module: StudyModule; progress: TopicProgress; status: "new" | "started" | "done" | "skipped"; gate?: Gate }) {
   const done = status === "done";
   return (
-    <Link
+    <LessonLink
+      gate={gate}
+      block
       href={studyHref(m.slug)}
       prefetch
       className={cn(
@@ -229,6 +289,7 @@ function LessonRow({ module: m, progress: p, status }: { module: StudyModule; pr
       <div className="min-w-0 flex-[1_1_18rem]">
         <h2 id={`lesson-${m.slug}`} className={cn("text-lg font-semibold", done ? "text-muted" : "text-fg")}>
           {m.title}
+          {gate && <> <GateMark gate={gate} /></>}
         </h2>
         <p className="num mt-0.5 text-sm text-muted">
           {m.screens.length} מושגים · {m.exercises.length + m.traps.length} שאלות תרגול
@@ -261,7 +322,7 @@ function LessonRow({ module: m, progress: p, status }: { module: StudyModule; pr
           </>
         )}
       </span>
-    </Link>
+    </LessonLink>
   );
 }
 

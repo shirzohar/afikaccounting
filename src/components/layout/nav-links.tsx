@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from "motion/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { TierBadge } from "@/components/pricing/tier-badge";
 import { type NavEntry, type NavGroup, site } from "@/lib/site";
 import { cn } from "@/lib/utils";
 
@@ -46,7 +47,10 @@ export function NavLinksView({ pathname = "" }: { pathname?: string }) {
             key={item.href}
             href={item.href}
             aria-current={active ? "page" : undefined}
-            className={cn("relative rounded-lg px-3 py-2 text-sm font-medium whitespace-nowrap transition-colors", active ? "text-fg" : "text-muted hover:text-fg")}
+            className={cn(
+              "relative rounded-lg px-3 py-2 text-sm font-medium whitespace-nowrap transition-colors",
+              item.tier === "exams" ? "font-semibold text-amber-600 hover:text-amber-500 dark:text-amber-300 dark:hover:text-amber-200" : active ? "text-fg" : "text-muted hover:text-fg",
+            )}
           >
             {active && <ActivePill />}
             {item.label}
@@ -122,7 +126,10 @@ function NavDropdown({ group, pathname }: { group: NavGroup; pathname: string })
                         aria-current={on ? "page" : undefined}
                         className={cn("block rounded-xl px-3 py-2 transition-colors hover:bg-surface-2", on && "bg-surface-2")}
                       >
-                        <span className="block text-sm font-semibold text-fg">{i.label}</span>
+                        <span className="flex items-center gap-2 text-sm font-semibold text-fg">
+                          {i.label}
+                          {i.tier && <TierBadge tier={i.tier} label={i.tier === "free" ? "חינם" : undefined} />}
+                        </span>
                         {i.description && <span className="block text-xs text-muted">{i.description}</span>}
                       </Link>
                     );
@@ -157,19 +164,20 @@ export function MobileNavView({ pathname = "" }: { pathname?: string }) {
     setOpen(false);
   }
 
-  const link = (href: string, label: string, nested = false) => {
+  const link = ({ href, label, tier }: { href: string; label: string; tier?: NavEntry["tier"] }, nested = false) => {
     const on = nested ? isItemActive(pathname, href) : isActive(pathname, href);
     return (
       <Link
         key={href}
         href={href}
         className={cn(
-          "block rounded-xl px-4 py-2.5 text-[15px] font-medium",
+          "flex items-center gap-2 rounded-xl px-4 py-2.5 text-[15px] font-medium",
           nested && "ms-3 border-s-2 border-line-strong ps-4",
-          on ? "bg-surface-2 text-fg" : "text-muted hover:bg-surface-2 hover:text-fg",
+          !nested && tier === "exams" ? "font-semibold text-amber-600 dark:text-amber-300" : on ? "bg-surface-2 text-fg" : "text-muted hover:bg-surface-2 hover:text-fg",
         )}
       >
         {label}
+        {nested && tier && <TierBadge tier={tier} label={tier === "free" ? "חינם" : undefined} />}
       </Link>
     );
   };
@@ -213,7 +221,7 @@ export function MobileNavView({ pathname = "" }: { pathname?: string }) {
                   {sectionsOf(item).map((s) => (
                     <div key={s.title}>
                       <p className="px-4 pt-1.5 pb-1 text-xs font-semibold text-accent">{s.title}</p>
-                      {s.items.map((i) => link(i.href, i.label, true))}
+                      {s.items.map((i) => link(i, true))}
                     </div>
                   ))}
                   <Link href={item.hub.href} className="mt-1 flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold text-accent">
@@ -221,7 +229,7 @@ export function MobileNavView({ pathname = "" }: { pathname?: string }) {
                   </Link>
                 </details>
               ) : (
-                link(item.href, item.label)
+                link(item)
               ),
             )}
           </motion.nav>

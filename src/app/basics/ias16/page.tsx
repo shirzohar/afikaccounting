@@ -9,6 +9,7 @@ import { ExchangeJournalSection } from "@/components/exchange/journal";
 import { NewAssetSection } from "@/components/exchange/new-asset";
 import { ExchangeStepsSection } from "@/components/exchange/steps";
 import { Breadcrumbs } from "@/components/layout/breadcrumbs";
+import { GatedChapters } from "@/components/pricing/locked-chapters";
 import { ExamTipsSection } from "@/components/learn/exam-tips";
 import { FundamentalsSection } from "@/components/learn/fundamentals";
 import { MethodologySection } from "@/components/learn/methodology";
@@ -138,6 +139,11 @@ const NUM = new Map(PARTS.flatMap((p) => p.topics).map((t, i) => [t.id, i + 1]))
 /** The tabs of the former page, so their old links still land on the right topic. */
 const ALIASES: Record<string, string> = { depreciation: "simulator", concepts: "basics" };
 
+/** The chapters past the free first part, as the paywall lists them in their places. */
+const LOCKED = PARTS.slice(1).flatMap((p) =>
+  p.topics.map((t) => ({ id: t.id, title: t.title, lead: t.lead, anchors: [...(t.subs?.map((x) => x.id) ?? []), ...(ALIASES[t.id] ? [ALIASES[t.id]] : [])] })),
+);
+
 const ROADMAP: [string, string, string][] = [
   ["#what", "אני רוצה ללמוד מהיסוד", "מהו רכוש קבוע, ואז מושגי היסוד"],
   ["#method", "אני רוצה לפתור שאלת מבחן", "תשעה שלבים על שאלה אחת מלאה"],
@@ -185,57 +191,12 @@ export default function Ias16Page() {
             <ChapterNav chapters={CHAPTERS} />
           </aside>
           <div className="min-w-0">
-            {PARTS.map((part, pi) => (
-              <section key={part.id} id={part.id} aria-labelledby={`${part.id}-h`} className={pi > 0 ? "mt-16" : undefined}>
-                <header className="border-b-2 border-accent/40 pb-3">
-                  <p className="text-xs font-semibold text-accent">חלק {part.n}</p>
-                  <h2 id={`${part.id}-h`} className="mt-0.5 text-2xl font-semibold tracking-tight text-fg">
-                    {part.title}
-                  </h2>
-                  <p className="mt-1 max-w-3xl text-[14.5px] leading-relaxed text-muted">{part.lead}</p>
-                </header>
-                {part.topics.map((t) => {
-                  const n = NUM.get(t.id)!;
-                  return (
-                    <section key={t.id} id={t.id} data-chapter={t.id} aria-labelledby={`${t.id}-h`} className="mt-10 scroll-mt-32 lg:scroll-mt-24">
-                      {ALIASES[t.id] && <span id={ALIASES[t.id]} className="block scroll-mt-32" aria-hidden />}
-                      <div className="flex items-start gap-3">
-                        <span className="num mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-full bg-accent text-sm font-bold text-accent-fg">{n}</span>
-                        <div className="min-w-0">
-                          <h3 id={`${t.id}-h`} className="text-xl font-semibold text-fg">
-                            {t.title}
-                          </h3>
-                          <p className="mt-1 max-w-3xl text-[14.5px] leading-relaxed text-muted">{t.lead}</p>
-                        </div>
-                      </div>
-                      {t.subs && (
-                        <ul className="no-print mt-3 flex flex-wrap gap-1.5 ps-12" aria-label={`בתוך ${t.label}`}>
-                          {t.subs.map((s) => (
-                            <li key={s.id}>
-                              <a href={`#${s.id}`} className="inline-flex min-h-8 items-center rounded-full border border-line px-3 py-1 text-[12.5px] font-medium text-fg hover:border-accent hover:bg-accent-soft/50">
-                                {s.label}
-                              </a>
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                      {t.content && <div className="mt-5 space-y-4">{t.content}</div>}
-                      {t.subs?.map((s, i) => (
-                        <section key={s.id} id={s.id} aria-labelledby={`${s.id}-h`} className="mt-8 scroll-mt-32 lg:scroll-mt-24">
-                          <h4 id={`${s.id}-h`} className="flex items-center gap-2 text-[17px] font-semibold text-fg">
-                            <span className="num rounded-md bg-accent-soft px-1.5 py-0.5 text-xs font-bold text-accent">
-                              {n}.{i + 1}
-                            </span>
-                            {s.label}
-                          </h4>
-                          <div className="mt-4 space-y-4">{s.content}</div>
-                        </section>
-                      ))}
-                    </section>
-                  );
-                })}
-              </section>
-            ))}
+            <PartSection part={PARTS[0]} first />
+            <GatedChapters topic="ias16" chapters={LOCKED} taste={{ href: "#what", label: "לפרק הראשון — בחינם" }}>
+              {PARTS.slice(1).map((part) => (
+                <PartSection key={part.id} part={part} />
+              ))}
+            </GatedChapters>
 
             <section id="full-calculator" data-chapter="full-calculator" aria-labelledby="full-calculator-h" className="mt-14 scroll-mt-32 lg:scroll-mt-24">
               <div className="card flex flex-wrap items-center gap-4 border-accent/40 p-6">
@@ -260,5 +221,60 @@ export default function Ias16Page() {
         </div>
       </Container>
     </div>
+  );
+}
+
+/** One part of the page: its header, then each topic with its sub-sections. */
+function PartSection({ part, first }: { part: Part; first?: boolean }) {
+  return (
+    <section id={part.id} aria-labelledby={`${part.id}-h`} className={first ? undefined : "mt-16"}>
+      <header className="border-b-2 border-accent/40 pb-3">
+        <p className="text-xs font-semibold text-accent">חלק {part.n}</p>
+        <h2 id={`${part.id}-h`} className="mt-0.5 text-2xl font-semibold tracking-tight text-fg">
+          {part.title}
+        </h2>
+        <p className="mt-1 max-w-3xl text-[14.5px] leading-relaxed text-muted">{part.lead}</p>
+      </header>
+      {part.topics.map((t) => {
+        const n = NUM.get(t.id)!;
+        return (
+          <section key={t.id} id={t.id} data-chapter={t.id} aria-labelledby={`${t.id}-h`} className="mt-10 scroll-mt-32 lg:scroll-mt-24">
+            {ALIASES[t.id] && <span id={ALIASES[t.id]} className="block scroll-mt-32" aria-hidden />}
+            <div className="flex items-start gap-3">
+              <span className="num mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-full bg-accent text-sm font-bold text-accent-fg">{n}</span>
+              <div className="min-w-0">
+                <h3 id={`${t.id}-h`} className="text-xl font-semibold text-fg">
+                  {t.title}
+                </h3>
+                <p className="mt-1 max-w-3xl text-[14.5px] leading-relaxed text-muted">{t.lead}</p>
+              </div>
+            </div>
+            {t.subs && (
+              <ul className="no-print mt-3 flex flex-wrap gap-1.5 ps-12" aria-label={`בתוך ${t.label}`}>
+                {t.subs.map((s) => (
+                  <li key={s.id}>
+                    <a href={`#${s.id}`} className="inline-flex min-h-8 items-center rounded-full border border-line px-3 py-1 text-[12.5px] font-medium text-fg hover:border-accent hover:bg-accent-soft/50">
+                      {s.label}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {t.content && <div className="mt-5 space-y-4">{t.content}</div>}
+            {t.subs?.map((s, i) => (
+              <section key={s.id} id={s.id} aria-labelledby={`${s.id}-h`} className="mt-8 scroll-mt-32 lg:scroll-mt-24">
+                <h4 id={`${s.id}-h`} className="flex items-center gap-2 text-[17px] font-semibold text-fg">
+                  <span className="num rounded-md bg-accent-soft px-1.5 py-0.5 text-xs font-bold text-accent">
+                    {n}.{i + 1}
+                  </span>
+                  {s.label}
+                </h4>
+                <div className="mt-4 space-y-4">{s.content}</div>
+              </section>
+            ))}
+          </section>
+        );
+      })}
+    </section>
   );
 }

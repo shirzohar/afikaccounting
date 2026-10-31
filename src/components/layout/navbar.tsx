@@ -1,15 +1,16 @@
 import { Suspense } from "react";
 import { Skeleton } from "@/components/ui/primitives";
+import { getAccess } from "@/lib/auth/access";
 import { getCurrentUser, getProfile, isAdmin } from "@/lib/auth/dal";
 import { Logo } from "./logo";
 import { MobileNav, MobileNavView, NavLinks, NavLinksView } from "./nav-links";
 import { ThemeToggle } from "./theme-toggle";
-import { GuestActions, UserMenu } from "./user-menu";
+import { GuestActions, UpgradeButton, UserMenu } from "./user-menu";
 
 export function Navbar() {
   return (
     <header className="glass no-print sticky top-0 z-40 border-x-0 border-t-0">
-      <div className="mx-auto flex h-16 max-w-7xl items-center gap-6 px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto flex h-16 max-w-7xl items-center gap-3 px-4 sm:px-6 md:gap-6 lg:px-8">
         <Logo />
         <Suspense fallback={<NavLinksView />}>
           <NavLinks />
@@ -32,6 +33,11 @@ export function Navbar() {
 async function AuthArea() {
   const user = await getCurrentUser();
   if (!user) return <GuestActions />;
-  const [profile, admin] = await Promise.all([getProfile(), isAdmin()]);
-  return <UserMenu name={profile?.fullName || user.email.split("@")[0]} email={user.email} admin={admin} />;
+  const [profile, admin, access] = await Promise.all([getProfile(), isAdmin(), getAccess()]);
+  return (
+    <>
+      {access.tier === "free" && <UpgradeButton />}
+      <UserMenu name={profile?.fullName || user.email.split("@")[0]} email={user.email} admin={admin} />
+    </>
+  );
 }

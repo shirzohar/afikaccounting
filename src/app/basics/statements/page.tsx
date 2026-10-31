@@ -5,6 +5,7 @@ import { type ChapterLink, ChapterNav } from "@/components/basics/chapter-nav";
 import { StatementsChapters } from "@/components/basics/statements";
 import { Container } from "@/components/ui/primitives";
 import { Breadcrumbs } from "@/components/layout/breadcrumbs";
+import { GatedChapters } from "@/components/pricing/locked-chapters";
 
 export const metadata: Metadata = {
   title: "הכנת דוחות כספיים והמסגרת המושגית (IFRS 18)",
@@ -25,6 +26,9 @@ const CHAPTERS: ChapterLink[] = [
   { id: "fs-practice", title: "תרגול" },
   { id: "fs-summary", title: "סיכום" },
 ];
+
+/** The chapters past the free first one, as the paywall lists them in their places; the builder's anchor sits in the full question. */
+const LOCKED = CHAPTERS.slice(1).map((c) => ({ ...c, anchors: c.id === "fs-exam" ? ["fs-builder"] : undefined }));
 
 const ROADMAP: [string, string, string][] = [
   ["#fs-framework", "אני רוצה ללמוד מהיסוד", "המסגרת המושגית, ואז IFRS 18"],
@@ -82,7 +86,10 @@ export default function StatementsPage() {
             <ChapterNav chapters={CHAPTERS} />
           </aside>
           <div className="min-w-0 space-y-14">
-            <StatementsChapters />
+            <StatementsChapters part="first" />
+            <GatedChapters topic="statements" chapters={LOCKED} taste={{ href: "#fs-framework", label: "לפרק הראשון — בחינם" }}>
+              <StatementsChapters part="rest" />
+            </GatedChapters>
           </div>
         </div>
       </Container>

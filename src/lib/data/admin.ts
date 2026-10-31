@@ -1,6 +1,7 @@
 import "server-only";
 import type { ArticleSection, Chapter, ContentKind, Level, Resource } from "@/lib/content/types";
 import type { Values } from "@/lib/engine/types";
+import { effectiveTier } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -243,4 +244,41 @@ export async function unlessSetupRequired<T>(load: Promise<T>): Promise<T | null
     if (e instanceof SetupRequiredError) return null;
     throw e;
   }
+}
+
+// ---- subscriptions -------------------------------------------------------------
+
+export type AdminSubscription = {
+  userId: string;
+  email: string;
+  fullName: string;
+  tier: "courses" | "exams";
+  status: string;
+  periodEnd: string | null;
+  provider: string;
+  updatedAt: string;
+  /** No longer opens anything: canceled, unpaid, or past its end date. */
+  ended: boolean;
+};
+export type AdminSubscriptions = {
+  subscriptions: AdminSubscription[];
+  /** Accounts that signed up from a paid plan's button, without a plan yet. */
+  interested: { userId: string; email: string; plan: "courses" | "exams"; createdAt: string }[];
+  waitlist: { email: string; topic: string; createdAt: string }[];
+};
+
+/** Every plan with its account, the accounts waiting on one, and the updates list. */
+export async function listSubscriptions(): Promise<AdminSubscriptions> {
+  const supabase = await createClient();
+  const [subs, waitlist] = await Promise.all([
+    supabase.rpc("admin_subscriptions"),
+    supabase.from("waitlist").select("email, topic, created_at").order("created_at", { ascending: false }).limit(200),
+  ]);
+  const data = check<{ subscriptions: Omit<AdminSubscription, "ended">[]; interested: AdminSubscriptions["interested"] }>(subs);
+  const now = new Date();
+  return {
+    ...data,
+    subscriptions: data.subscriptions.map((s) => ({ ...s, ended: effectiveTier([{ tier: s.tier, status: s.status, current_period_end: s.periodEnd }], now) === "free" })),
+    waitlist: check(waitlist).map((w) => ({ email: w.email, topic: w.topic, createdAt: w.created_at })),
+  };
 }

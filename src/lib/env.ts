@@ -12,3 +12,10 @@ export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3
 
 /** Optional stand-in video used for lessons that have no recording uploaded yet. */
 export const DEMO_VIDEO_URL = process.env.NEXT_PUBLIC_DEMO_VIDEO_URL ?? "";
+
+/**
+ * Demo mode only: act as a reader on this plan ("free" or "courses"), to see
+ * the locks and paywalls without Supabase. Unset, demo mode opens everything.
+ * Ignored once Supabase is configured.
+ */
+export const ACCESS_PREVIEW_TIER = process.env.ACCESS_PREVIEW_TIER ?? "";

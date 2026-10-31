@@ -11,36 +11,53 @@ import {
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
+import { NextLesson } from "@/components/dashboard/next-lesson";
 import { SavedSolutions } from "@/components/dashboard/saved-solutions";
+import { TrackEvent } from "@/components/layout/track-event";
 import { CalculatorIcon } from "@/components/engine/calculator-visuals";
 import { ButtonLink } from "@/components/ui/button";
 import { Container, EmptyState, Skeleton } from "@/components/ui/primitives";
+import { lockedOf } from "@/lib/access";
+import { getAccess } from "@/lib/auth/access";
 import { getProfile, requireUser } from "@/lib/auth/dal";
+import { topicByHref } from "@/lib/catalog";
+import { outlineOf } from "@/lib/study/paths";
 import { listActivity, listSavedSolutions, listWatchHistory, type WatchEntry } from "@/lib/data/user";
 import { duration } from "@/lib/engine/format";
 import { CALCULATORS } from "@/lib/engine/registry";
+import { BASICS_LESSONS } from "@/lib/study/basics";
+import { INVENTORY_LESSONS } from "@/lib/study/inventory";
 import { relativeTime } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "לוח אישי" };
 
-export default function DashboardPage() {
+export default function DashboardPage({ searchParams }: PageProps<"/dashboard">) {
   return (
     <Container className="pt-10 sm:pt-14">
       <Suspense fallback={<DashboardSkeleton />}>
-        <Dashboard />
+        <Dashboard searchParams={searchParams} />
       </Suspense>
     </Container>
   );
 }
 
-async function Dashboard() {
+/** The courses the dashboard walks through, in order: the free one, then inventory. */
+const COURSES = [BASICS_LESSONS, INVENTORY_LESSONS].map((lessons) => {
+  const topic = topicByHref(lessons[0].backHref)!;
+  return { topic, title: topic.title, href: topic.href, lessons };
+});
+
+async function Dashboard({ searchParams }: Pick<PageProps<"/dashboard">, "searchParams">) {
   const user = await requireUser("/dashboard");
-  const [profile, solutions, history, activity] = await Promise.all([
+  const [profile, solutions, history, activity, access, sp] = await Promise.all([
     getProfile(),
     listSavedSolutions(),
     listWatchHistory(),
     listActivity(),
+    getAccess(),
+    searchParams,
   ]);
+  const locked = COURSES.flatMap((c) => lockedOf(access, c.topic, c.lessons.map((m) => m.slug)));
   const name = profile?.fullName?.split(" ")[0] || user.email.split("@")[0];
   const completed = history.filter((h) => h.completed).length;
   const inProgress = history.filter((h) => !h.completed);
@@ -51,11 +68,18 @@ async function Dashboard() {
         <div>
           <p className="text-xs font-semibold text-accent">לוח אישי</p>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight text-fg">שלום, {name}</h1>
-          <p className="mt-1 text-sm text-muted">התרחישים השמורים, השיעורים והפעילות האחרונה שלכם.</p>
+          <p className="mt-1 text-sm text-muted">השיעור הבא שלכם, התרחישים השמורים והפעילות האחרונה.</p>
         </div>
-        <ButtonLink href="/engine">
+        <ButtonLink href="/engine" variant="secondary">
           <Plus className="h-4 w-4" /> חישוב חדש
         </ButtonLink>
+      </div>
+      {/* Signed straight in after sign-up (/register redirects here with ?welcome=1). */}
+      {sp.welcome === "1" && <TrackEvent event={{ kind: "signup" }} once="signup" />}
+
+      <div className="mt-8">
+        {/* The path needs only each lesson's outline; the lessons' content stays on the server. */}
+        <NextLesson courses={COURSES.map(({ title, href, lessons }) => ({ title, href, lessons: lessons.map(outlineOf) }))} locked={locked} upgrade={access.tier === "free"} />
       </div>
 
       <dl className="mt-8 grid gap-4 sm:grid-cols-3">

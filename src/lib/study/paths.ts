@@ -27,3 +27,17 @@ export function videoAt(videos: LessonVideo[] | undefined, screen: string) {
   }
   return undefined;
 }
+
+/**
+ * A lesson as the course path needs it, without its content: titles and
+ * screens' names, and its questions' ids only (for counts, XP and status).
+ * What a page sends to the browser for a lesson the reader can't open.
+ */
+export function outlineOf(m: StudyModule): StudyModule {
+  return {
+    ...m,
+    exercises: m.exercises.map((ex) => ({ id: ex.id, kind: ex.kind }) as StudyModule["exercises"][number]),
+    traps: m.traps.map((t) => ({ id: t.id, prompt: "", options: [], answer: -1, why: "", traps: [] })),
+    tips: [],
+  };
+}

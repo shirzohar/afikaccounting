@@ -1,20 +1,20 @@
 import Link from "next/link";
-import { LEARN_HUB, LEARNING_PATH, LEARNING_TOOLS } from "@/lib/catalog";
+import { EXAMS_HUB, FIRST_LESSON, LEARN_HUB, LEARNING_TOOLS, PRICING_HUB, TOPICS } from "@/lib/catalog";
 import { CALCULATORS } from "@/lib/engine/registry";
 import { site } from "@/lib/site";
 import { LogoMark } from "./logo";
 
-// The same map as the menu, from the catalog: learn, calculate, watch, and the account.
+// The same map as the menu, from the catalog: the courses, the tools, the videos, and the plans and the account.
 const COLUMNS = [
   {
-    title: "לימוד",
+    title: "קורסים",
     links: [
       LEARN_HUB,
-      ...LEARNING_PATH.flatMap((s) => s.topics.map((t) => ({ href: t.href, label: t.standard ? `${t.standard} · ${t.title}` : t.title }))),
+      ...TOPICS.map((t) => ({ href: t.href, label: `${t.standard ? `${t.standard} · ${t.title}` : t.title}${t.tier === "free" ? " — חינם" : ""}` })),
     ],
   },
   {
-    title: "מחשבונים",
+    title: "כלים",
     links: [
       ...LEARNING_TOOLS.map((c) => ({ href: c.href, label: c.label })),
       ...CALCULATORS.map((c) => ({ href: `/engine?calc=${c.slug}`, label: `מנוע: ${c.standard} — ${c.category}` })),
@@ -33,7 +33,9 @@ const COLUMNS = [
   {
     title: "הפלטפורמה",
     links: [
-      { href: "/engine", label: "מנוע הפתרונות החשבונאי" },
+      { href: FIRST_LESSON, label: "שיעור 1 — מתחילים כאן" },
+      PRICING_HUB,
+      { href: EXAMS_HUB.href, label: `${EXAMS_HUB.label} (בקרוב)` },
       { href: "/dashboard", label: "הלוח האישי" },
       { href: "/about", label: "אודות" },
     ],

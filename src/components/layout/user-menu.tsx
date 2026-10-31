@@ -1,22 +1,33 @@
 "use client";
 
-import { ChevronDown, LayoutDashboard, LogOut, ShieldCheck, UserRound } from "lucide-react";
+import { ArrowLeft, ChevronDown, LayoutDashboard, LogOut, ShieldCheck, Sparkles, UserRound } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { ButtonLink } from "@/components/ui/button";
 import { signOut } from "@/lib/actions/auth";
+import { FIRST_LESSON } from "@/lib/catalog";
 
+/** A guest's way in: straight into lesson 1, no account needed. */
 export function GuestActions() {
   return (
     <div className="flex items-center gap-1.5">
       <ButtonLink href="/login" variant="ghost" size="sm" className="hidden sm:inline-flex">
         התחברות
       </ButtonLink>
-      <ButtonLink href="/register" size="sm">
-        הרשמה
+      <ButtonLink href={FIRST_LESSON} size="sm" className="max-sm:px-2.5">
+        התחילו בחינם <ArrowLeft className="h-3.5 w-3.5 max-sm:hidden" aria-hidden />
       </ButtonLink>
     </div>
+  );
+}
+
+/** For an account on the free plan: the way to the plans. */
+export function UpgradeButton() {
+  return (
+    <ButtonLink href="/pricing" size="sm" className="max-sm:hidden">
+      <Sparkles className="h-3.5 w-3.5" aria-hidden /> שדרוג
+    </ButtonLink>
   );
 }
 

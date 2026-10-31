@@ -1,8 +1,9 @@
 import { ArrowLeft, Calculator, FileText, Play } from "lucide-react";
 import Link from "next/link";
+import { TierBadge } from "@/components/pricing/tier-badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Badge } from "@/components/ui/primitives";
-import { LEARNING_PATH, type Stage, type Topic } from "@/lib/catalog";
+import { LEARNING_PATH, type Stage, tasteLabel, type Topic } from "@/lib/catalog";
 import { cn } from "@/lib/utils";
 
 /**
@@ -52,6 +53,10 @@ function Title({ topic }: { topic: Topic }) {
           {topic.standard}
         </Badge>
       )}
+      <span className="ms-auto flex flex-wrap gap-1.5">
+        <TierBadge tier={topic.tier} label={topic.tier === "free" ? "חינם, כולו" : undefined} />
+        {topic.preview.length > 0 && <TierBadge tier="free" label={tasteLabel(topic)} />}
+      </span>
     </p>
   );
 }
