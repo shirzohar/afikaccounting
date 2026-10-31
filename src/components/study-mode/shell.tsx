@@ -371,14 +371,14 @@ export function StudyShell({ module: m, screens, next, course }: { module: Study
           </button>
         </div>
 
-        {/* The whole width of the screen: the course at its right edge, the lesson spread across the rest. */}
-        <div className="w-full px-4 pt-5 sm:px-6 lg:ps-4 lg:pe-8 lg:pt-6 2xl:pe-12">
-          <div className="grid gap-6 lg:grid-cols-[18.5rem_minmax(0,1fr)] xl:gap-10">
-            <aside className="no-print hidden lg:block" aria-label="הקורס">
-              <div className="sticky top-20 max-h-[calc(100dvh-6rem)] overflow-y-auto overscroll-contain pb-6 [scrollbar-width:thin]">{outline}</div>
+        {/* The whole width of the screen: the course as a panel against its right edge, the lesson spread across the rest. */}
+        <div className="w-full px-4 pt-5 sm:px-6 lg:p-0">
+          <div className="grid gap-6 lg:grid-cols-[18.5rem_minmax(0,1fr)] lg:gap-0">
+            <aside className="no-print hidden border-e border-line bg-surface/60 lg:block" aria-label="הקורס">
+              <div className="sticky top-16 max-h-[calc(100dvh-4rem)] overflow-y-auto overscroll-contain px-3 pt-5 pb-6 [scrollbar-width:thin]">{outline}</div>
             </aside>
 
-            <div ref={top} className="min-w-0 scroll-mt-32 lg:scroll-mt-24" role="region" aria-label={`שיעור אינטראקטיבי: ${m.title}`}>
+            <div ref={top} className="min-w-0 scroll-mt-32 lg:scroll-mt-20 lg:px-8 lg:pt-6 2xl:px-12" role="region" aria-label={`שיעור אינטראקטיבי: ${m.title}`}>
               <Breadcrumbs trail={[{ label: course.title, href: course.href }, { label: `שיעור ${m.n}: ${m.title}` }]} />
               <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
                 <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-accent-soft text-accent" aria-hidden>

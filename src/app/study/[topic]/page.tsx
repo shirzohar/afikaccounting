@@ -115,10 +115,12 @@ function LockedLesson({ slug }: { slug: string }) {
 /** The lesson page's frame — the course beside it, the screen — until the lesson arrives. */
 function LessonSkeleton() {
   return (
-    <div className="w-full px-4 pt-5 sm:px-6 lg:ps-4 lg:pe-8 lg:pt-6 2xl:pe-12" aria-busy="true" aria-label="טוען שיעור">
-      <div className="grid gap-6 lg:grid-cols-[18.5rem_minmax(0,1fr)] xl:gap-10">
-        <Skeleton className="hidden h-[32rem] rounded-2xl lg:block" />
-        <div className="space-y-4">
+    <div className="w-full px-4 pt-5 sm:px-6 lg:p-0" aria-busy="true" aria-label="טוען שיעור">
+      <div className="grid gap-6 lg:grid-cols-[18.5rem_minmax(0,1fr)] lg:gap-0">
+        <div className="hidden border-e border-line bg-surface/60 p-3 pt-5 lg:block">
+          <Skeleton className="h-[32rem] rounded-2xl" />
+        </div>
+        <div className="space-y-4 lg:px-8 lg:pt-6 2xl:px-12">
           <Skeleton className="h-10 w-2/3" />
           <Skeleton className="h-96 rounded-2xl" />
         </div>
