@@ -17,6 +17,7 @@ export function Paywall({
   taste,
   where,
   heading: H = "h2",
+  lead,
 }: {
   tier?: Exclude<Tier, "free">;
   /** What is locked: the lesson's or chapter's name. */
@@ -29,6 +30,8 @@ export function Paywall({
   where: string;
   /** h1 when the paywall is the page. */
   heading?: "h1" | "h2";
+  /** What the plan opens here, in place of the lessons' wording. */
+  lead?: string;
 }) {
   const plan = planOf(tier);
   const id = `paywall-${where.replace(/[^a-z0-9]+/gi, "-")}`;
@@ -45,10 +48,11 @@ export function Paywall({
           <span className="text-sm text-muted">{course}</span>
         </div>
         <H id={id} className="mt-4 text-2xl font-semibold tracking-tight text-fg">
-          {title} — בקורס המלא
+          {title} — {tier === "exams" ? "במתחם המבחנים" : "בקורס המלא"}
         </H>
         <p className="mt-1.5 max-w-xl text-[15px] leading-relaxed text-muted">
-          זה פתוח במסלול <strong className="text-fg">{plan.name}</strong>. אותו מבנה שכבר הכרתם — מושגים עם דוגמה חיה, תרגול עם משוב ומלכודות, וסיכום עם טיפים — עד רמת מבחן.
+          זה פתוח במסלול <strong className="text-fg">{plan.name}</strong>.{" "}
+          {lead ?? "אותו מבנה שכבר הכרתם — מושגים עם דוגמה חיה, תרגול עם משוב ומלכודות, וסיכום עם טיפים — עד רמת מבחן."}
         </p>
         <ul className="mt-4 grid gap-2 sm:grid-cols-2">
           {plan.includes.map((x) => (

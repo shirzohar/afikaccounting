@@ -2,6 +2,8 @@ import "server-only";
 import type { ArticleSection, Chapter, ContentKind, Level, Resource } from "@/lib/content/types";
 import type { Values } from "@/lib/engine/types";
 import { effectiveTier } from "@/lib/access";
+import { parseBlocks, parseSteps } from "@/lib/exams/parse";
+import type { ExamBlock, ExamMeta, SolutionStep } from "@/lib/exams/types";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -280,5 +282,61 @@ export async function listSubscriptions(): Promise<AdminSubscriptions> {
     ...data,
     subscriptions: data.subscriptions.map((s) => ({ ...s, ended: effectiveTier([{ tier: s.tier, status: s.status, current_period_end: s.periodEnd }], now) === "free" })),
     waitlist: check(waitlist).map((w) => ({ email: w.email, topic: w.topic, createdAt: w.created_at })),
+  };
+}
+
+// ---- exams -------------------------------------------------------------------
+
+export type AdminExamRow = ExamMeta & { hasSteps: boolean; updatedAt: string };
+export type AdminExam = ExamMeta & {
+  questionPath: string | null;
+  solution: { question: ExamBlock[]; steps: SolutionStep[]; video: string | null; videoSeconds: number; solutionPath: string | null };
+};
+
+const EXAM_COLUMNS = "id, topic, year, session, title, description, subjects, question_path, is_sample, published, updated_at";
+type ExamRow = { id: string; topic: string; year: number; session: string; title: string; description: string; subjects: string[]; question_path: string | null; is_sample: boolean; published: boolean; updated_at: string };
+const examMeta = (r: ExamRow): ExamMeta => ({
+  id: r.id,
+  topic: r.topic,
+  year: r.year,
+  session: r.session,
+  title: r.title,
+  description: r.description,
+  subjects: r.subjects ?? [],
+  hasPaper: !!r.question_path,
+  isSample: r.is_sample,
+  published: r.published,
+});
+
+/** Every exam, drafts too, with whether its solution has steps yet. */
+export async function listExamsAdmin(): Promise<AdminExamRow[]> {
+  const supabase = await createClient();
+  const [exams, solutions] = await Promise.all([
+    supabase.from("exams").select(EXAM_COLUMNS).order("updated_at", { ascending: false }).limit(1000),
+    supabase.from("exam_solutions").select("exam_id, steps").limit(1000),
+  ]);
+  const withSteps = new Set(check(solutions).filter((s) => Array.isArray(s.steps) && s.steps.length).map((s) => s.exam_id));
+  return check(exams).map((r: ExamRow) => ({ ...examMeta(r), hasSteps: withSteps.has(r.id), updatedAt: r.updated_at }));
+}
+
+export async function getExamAdmin(id: string): Promise<AdminExam | null> {
+  const supabase = await createClient();
+  const [exam, solution] = await Promise.all([
+    supabase.from("exams").select(EXAM_COLUMNS).eq("id", id).maybeSingle(),
+    supabase.from("exam_solutions").select("question, steps, video, video_seconds, solution_path").eq("exam_id", id).maybeSingle(),
+  ]);
+  const r = check(exam) as ExamRow | null;
+  if (!r) return null;
+  const s = check(solution);
+  return {
+    ...examMeta(r),
+    questionPath: r.question_path,
+    solution: {
+      question: parseBlocks(s?.question),
+      steps: parseSteps(s?.steps),
+      video: s?.video ?? null,
+      videoSeconds: s?.video_seconds ?? 0,
+      solutionPath: s?.solution_path ?? null,
+    },
   };
 }

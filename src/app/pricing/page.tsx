@@ -23,7 +23,7 @@ const COMPARE: { label: string; plans: Record<Tier, boolean | string> }[] = [
   { label: "מלאי (IAS 2)", plans: { free: "שיעור 1", courses: "כל 6 השיעורים", exams: "כל 6 השיעורים" } },
   { label: "רכוש קבוע (IAS 16)", plans: { free: "פרק 1", courses: "כל הפרקים", exams: "כל הפרקים" } },
   { label: "הצגת דוחות כספיים", plans: { free: "פרק 1", courses: "כל הפרקים", exams: "כל הפרקים" } },
-  { label: "פתרונות מלאים לתרגילים ברמת מבחן", plans: { free: false, courses: false, exams: "בקרוב" } },
+  { label: "פתרונות מלאים לתרגילים ברמת מבחן", plans: { free: "מבחן לדוגמה", courses: "מבחן לדוגמה", exams: true } },
   { label: "ארכיון מבחנים עם פתרונות", plans: { free: false, courses: false, exams: "בקרוב" } },
 ];
 

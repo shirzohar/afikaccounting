@@ -35,7 +35,7 @@ const COLUMNS = [
     links: [
       { href: FIRST_LESSON, label: "שיעור 1 — מתחילים כאן" },
       PRICING_HUB,
-      { href: EXAMS_HUB.href, label: `${EXAMS_HUB.label} (בקרוב)` },
+      { href: EXAMS_HUB.href, label: EXAMS_HUB.label },
       { href: "/dashboard", label: "הלוח האישי" },
       { href: "/about", label: "אודות" },
     ],

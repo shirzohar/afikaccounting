@@ -88,7 +88,8 @@ export function ContentFilters({ standards, categories }: { standards: string[];
   );
 }
 
-function ChipGroup({
+/** Single-choice chips; choosing the chosen one again clears it. */
+export function ChipGroup({
   label,
   options,
   value,

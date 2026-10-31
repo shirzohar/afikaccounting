@@ -1,10 +1,12 @@
 /**
- * Upserts the bundled content catalogue and calculator schemas into Supabase.
+ * Upserts the bundled content catalogue and calculator schemas into Supabase,
+ * and the demo exams as drafts (unpublished: an admin reviews and publishes them).
  *   npm run db:seed
  * Needs NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY (writes bypass RLS).
  */
 import { createClient } from "@supabase/supabase-js";
 import { SEED_CONTENT } from "../src/lib/content/seed";
+import { SEED_EXAMS } from "../src/lib/exams/seed";
 import { CALCULATORS, toSchema } from "../src/lib/engine/registry";
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -48,6 +50,15 @@ async function main() {
   const r2 = await db.from("accounting_calculators").upsert(calculators, { onConflict: "slug" });
   if (r2.error) throw r2.error;
   console.log(`✓ accounting_calculators: ${calculators.length} rows`);
+
+  // Drafts only, and never over an exam an admin has already changed: ignoreDuplicates.
+  const exams = SEED_EXAMS.map((e) => ({ id: e.id, topic: e.topic, year: e.year, session: e.session, title: e.title, description: e.description, subjects: e.subjects, is_sample: e.isSample, published: false }));
+  const r3 = await db.from("exams").upsert(exams, { onConflict: "id", ignoreDuplicates: true });
+  if (r3.error) throw r3.error;
+  const solutions = SEED_EXAMS.map((e) => ({ exam_id: e.id, question: e.content.question, steps: e.content.steps }));
+  const r4 = await db.from("exam_solutions").upsert(solutions, { onConflict: "exam_id", ignoreDuplicates: true });
+  if (r4.error) throw r4.error;
+  console.log(`✓ exams: ${exams.length} drafts (publish them in /admin/exams)`);
 }
 
 main().catch((e) => {

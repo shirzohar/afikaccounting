@@ -59,7 +59,7 @@ export default function InventoryPage() {
           </div>
         </section>
 
-        <ExamsSection />
+        <ExamsSection topic="inventory" />
       </Container>
     </div>
   );

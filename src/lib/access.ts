@@ -65,3 +65,10 @@ export function canAccessWith(access: Access, topic: Pick<Topic, "tier" | "previ
 
 /** The lessons or chapters of a topic the reader can't open, out of `items`. */
 export const lockedOf = (access: Access, topic: Pick<Topic, "tier" | "preview">, items: string[]) => items.filter((i) => !canAccessWith(access, topic, i));
+
+/**
+ * Whether the reader may open an exam's paper and solution: a sample is open
+ * to everyone; any other needs the exams plan (an admin has it). The database
+ * applies the same rule (public.can_open_exam), so the two always agree.
+ */
+export const canOpenExam = (access: Access, exam: { isSample: boolean }) => exam.isSample || tierAllows(access.tier, "exams");

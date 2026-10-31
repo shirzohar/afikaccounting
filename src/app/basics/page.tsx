@@ -52,7 +52,7 @@ export default function BasicsPage() {
           </div>
         </section>
 
-        <ExamsSection />
+        <ExamsSection topic="basics" />
       </Container>
     </div>
   );

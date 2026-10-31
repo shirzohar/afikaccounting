@@ -3,7 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Hero } from "@/components/home/hero";
 import { TrackEvent } from "@/components/layout/track-event";
-import { ExamsTeaser } from "@/components/pricing/exams-teaser";
+import { HomeExams } from "@/components/pricing/exams-teaser";
 import { Faq } from "@/components/pricing/faq";
 import { PlanCards } from "@/components/pricing/plan-cards";
 import { TierBadge } from "@/components/pricing/tier-badge";
@@ -36,7 +36,7 @@ const HOW = [
 const FAQ = [
   { q: "זה באמת חינם?", a: "כן. ״חשבונאות מאפס״ — כל 6 השיעורים, עם התרגול, הסרטונים והסיכומים — פתוח בחינם, לתמיד. וגם השיעור הראשון בכל קורס מתקדם." },
   { q: "צריך כרטיס אשראי?", a: "לא. אפשר להתחיל את שיעור 1 עכשיו, בלי הרשמה ובלי כרטיס אשראי." },
-  { q: "מה מקבלים במנוי?", a: "את הקורסים המתקדמים במלואם — מלאי, רכוש קבוע והצגת דוחות כספיים, עד רמת מבחן. במסלול ״קורסים + מבחנים״ נוסף מתחם המבחנים, כשייפתח." },
+  { q: "מה מקבלים במנוי?", a: "את הקורסים המתקדמים במלואם — מלאי, רכוש קבוע והצגת דוחות כספיים, עד רמת מבחן. במסלול ״קורסים + מבחנים״ נוסף מתחם המבחנים: תרגילים ברמת מבחן עם פתרון מלא מאפס." },
   { q: "אפשר לבטל?", a: "כן, בכל רגע. המנוי נשאר פעיל עד סוף התקופה ששילמתם עליה, והקורס החינמי נשאר פתוח לכם תמיד." },
   { q: "צריך רקע קודם?", a: "לא. הקורס מתחיל ממש מההתחלה — מה זה עסק, מה זה נכס ולמה יש חובה וזכות." },
 ];
@@ -174,7 +174,7 @@ export default function Home() {
 
       <Container className="pt-16 sm:pt-20">
         <SectionHeading eyebrow="השלב הבא" title="ואחרי הקורסים — מתרגלים כמו במבחן" />
-        <ExamsTeaser className="mt-8" />
+        <HomeExams />
       </Container>
 
       {TESTIMONIALS.length > 0 && (
