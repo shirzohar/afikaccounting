@@ -1,16 +1,23 @@
 import { ArrowLeft, Check } from "lucide-react";
+import Link from "next/link";
+import { billingEnabled } from "@/lib/billing";
 import { FIRST_LESSON } from "@/lib/catalog";
-import { PLANS, PRICES_ARE_FINAL, signupHref } from "@/lib/pricing";
+import { checkoutHref, PLANS, PRICES_ARE_FINAL, signupHref } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 import { PlanCta } from "./plan-cta";
 import { TierBadge } from "./tier-badge";
 
 /**
  * The three plans side by side, the featured one raised: name, price, what's
- * included, and the way in — free starts lesson 1, a paid plan signs up with
- * the plan noted (payment isn't open yet). `from` names the page, for plan_click.
+ * included, and the way in — free starts lesson 1; a paid plan starts the
+ * checkout when payments are on, and otherwise signs up with the plan noted.
+ * `from` names the page, for plan_click; `returnTo` is where to send the
+ * reader back after paying (the lesson they came from).
  */
-export function PlanCards({ from, chosen }: { from: string; chosen?: string }) {
+export function PlanCards({ from, chosen, returnTo }: { from: string; chosen?: string; returnTo?: string }) {
+  const paying = billingEnabled();
+  const href = (tier: (typeof PLANS)[number]["tier"], interval: "month" | "year" = "month") =>
+    tier === "free" ? FIRST_LESSON : paying ? checkoutHref(tier, interval, returnTo) : signupHref(tier);
   return (
     <div>
       <div className="grid items-stretch gap-4 lg:grid-cols-3">
@@ -37,7 +44,17 @@ export function PlanCards({ from, chosen }: { from: string; chosen?: string }) {
                 <span className="text-sm text-muted">{p.monthly === 0 ? "לתמיד" : "לחודש"}</span>
               </p>
               {p.yearly ? (
-                <p className="num text-xs text-muted">או ₪{p.yearly} לשנה</p>
+                <p className="num text-xs text-muted">
+                  או ₪{p.yearly} לשנה
+                  {paying && (
+                    <>
+                      {" · "}
+                      <Link href={href(p.tier, "year")} className="font-medium text-accent hover:underline">
+                        לתשלום שנתי
+                      </Link>
+                    </>
+                  )}
+                </p>
               ) : (
                 <p className="text-xs text-muted">בלי כרטיס אשראי, בלי הרשמה</p>
               )}
@@ -51,7 +68,7 @@ export function PlanCards({ from, chosen }: { from: string; chosen?: string }) {
               <PlanCta
                 tier={p.tier}
                 from={from}
-                href={p.tier === "free" ? FIRST_LESSON : signupHref(p.tier)}
+                href={href(p.tier)}
                 variant={featured ? "primary" : "secondary"}
                 className="mt-6 w-full"
               >
@@ -61,7 +78,11 @@ export function PlanCards({ from, chosen }: { from: string; chosen?: string }) {
           );
         })}
       </div>
-      {!PRICES_ARE_FINAL && <p className="mt-4 text-center text-xs text-subtle">המחירים עדיין לא סופיים, והתשלום ייפתח בקרוב. בחירה במסלול היום פותחת חשבון חינמי ושומרת את הבחירה שלכם.</p>}
+      {paying ? (
+        <p className="mt-4 text-center text-xs text-subtle">תשלום מאובטח אצל ספק הסליקה, חשבונית לכל חיוב. ביטול בכל רגע מהפרופיל — המנוי נשאר פתוח עד סוף התקופה ששולמה.</p>
+      ) : (
+        !PRICES_ARE_FINAL && <p className="mt-4 text-center text-xs text-subtle">המחירים עדיין לא סופיים, והתשלום ייפתח בקרוב. בחירה במסלול היום פותחת חשבון חינמי ושומרת את הבחירה שלכם.</p>
+      )}
     </div>
   );
 }

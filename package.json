@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "next typegen && tsc --noEmit",
-    "test": "tsx --test src/lib/engine/engine.test.ts src/lib/learn/depreciation.test.ts src/lib/learn/exchange.test.ts src/lib/learn/renovation.test.ts src/lib/learn/revaluation.test.ts src/lib/learn/basics.test.ts src/lib/learn/worksheet.test.ts src/lib/learn/credit-losses.test.ts src/lib/learn/credit-solver.test.ts src/lib/learn/inventory.test.ts src/lib/learn/inventory-solver.test.ts src/lib/learn/inventory-walkthrough.test.ts src/lib/learn/statements.test.ts src/lib/learn/ias16-example.test.ts src/lib/study/study.test.ts src/lib/catalog.test.ts src/lib/access.test.ts src/lib/exams/exams.test.ts supabase/tests/rls.test.ts",
+    "test": "tsx --test src/lib/engine/engine.test.ts src/lib/learn/depreciation.test.ts src/lib/learn/exchange.test.ts src/lib/learn/renovation.test.ts src/lib/learn/revaluation.test.ts src/lib/learn/basics.test.ts src/lib/learn/worksheet.test.ts src/lib/learn/credit-losses.test.ts src/lib/learn/credit-solver.test.ts src/lib/learn/inventory.test.ts src/lib/learn/inventory-solver.test.ts src/lib/learn/inventory-walkthrough.test.ts src/lib/learn/statements.test.ts src/lib/learn/ias16-example.test.ts src/lib/study/study.test.ts src/lib/catalog.test.ts src/lib/access.test.ts src/lib/exams/exams.test.ts supabase/tests/rls.test.ts src/lib/billing/billing.test.ts supabase/tests/billing.test.ts",
     "db:seed": "tsx --env-file=.env.local scripts/seed.ts"
   },
   "dependencies": {

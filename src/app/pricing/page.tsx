@@ -8,6 +8,7 @@ import { TierBadge } from "@/components/pricing/tier-badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Container, SectionHeading } from "@/components/ui/primitives";
 import { FIRST_LESSON } from "@/lib/catalog";
+import { safeNext } from "@/lib/auth/dal";
 import { isTier, PLANS, type Tier } from "@/lib/pricing";
 
 export const metadata: Metadata = {
@@ -120,14 +121,24 @@ export default function PricingPage({ searchParams }: PageProps<"/pricing">) {
   );
 }
 
-/** ?plan= (from a paywall) raises that plan, and is recorded with the view. */
+/**
+ * ?plan= (from a paywall) raises that plan, and is recorded with the view;
+ * ?from= is the page the reader came from, to return to after paying;
+ * ?canceled=1 means they came back from the payment page without paying.
+ */
 async function Chosen({ searchParams }: Pick<PageProps<"/pricing">, "searchParams">) {
-  const plan = (await searchParams).plan;
-  const chosen = isTier(plan) ? plan : undefined;
+  const sp = await searchParams;
+  const chosen = isTier(sp.plan) ? sp.plan : undefined;
+  const from = typeof sp.from === "string" ? safeNext(sp.from, "") || undefined : undefined;
   return (
     <>
       <TrackEvent event={{ kind: "pricing_view", target: chosen }} />
-      <PlanCards from="pricing" chosen={chosen} />
+      {sp.canceled === "1" && (
+        <p role="status" className="mb-6 rounded-xl border border-amber-500/30 bg-amber-400/10 px-4 py-3 text-center text-sm text-fg">
+          התשלום לא הושלם, ולא חויבתם. אפשר לבחור מסלול ולנסות שוב.
+        </p>
+      )}
+      <PlanCards from="pricing" chosen={chosen} returnTo={from} />
     </>
   );
 }

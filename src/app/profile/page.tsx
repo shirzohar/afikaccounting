@@ -1,11 +1,14 @@
 import { KeyRound, LogOut, Mail } from "lucide-react";
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import { SubscriptionPanel } from "@/components/billing/subscription-panel";
 import { ProfileForm } from "@/components/profile/profile-form";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Container, Skeleton } from "@/components/ui/primitives";
 import { signOut } from "@/lib/actions/auth";
 import { getProfile, requireUser } from "@/lib/auth/dal";
+import { billingProvider } from "@/lib/billing";
+import { getMySubscription, listMyInvoices } from "@/lib/data/billing";
 import { CALCULATORS } from "@/lib/engine/registry";
 import { shortDate } from "@/lib/utils";
 
@@ -25,7 +28,7 @@ export default function ProfilePage() {
 
 async function ProfileContent() {
   const user = await requireUser("/profile");
-  const profile = await getProfile();
+  const [profile, sub, invoices] = await Promise.all([getProfile(), getMySubscription(), listMyInvoices()]);
   const standards = [...new Set(CALCULATORS.map((c) => c.standard.split(" · ")[0]))];
 
   return (
@@ -37,6 +40,8 @@ async function ProfileContent() {
         </p>
         <ProfileForm profile={profile} standards={standards} />
       </section>
+
+      <SubscriptionPanel sub={sub} invoices={invoices} provider={billingProvider()?.name ?? null} />
 
       <section className="card divide-y divide-line">
         <div className="flex flex-wrap items-center gap-4 p-6">

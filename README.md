@@ -73,6 +73,24 @@ Access is enforced in three places: the proxy (signed-in only), every admin page
 
 Usage analytics are anonymous: a random id per browser tab, never linked to an account unless the visitor is signed in. Events are sent with `navigator.sendBeacon` to `/api/track`, validated there, and aggregated in the database (`admin_analytics`). Admin pages are not tracked.
 
+## Payments (`BILLING_PROVIDER`)
+
+Plans and prices live in `src/lib/pricing.ts`; access is always read from `public.subscriptions` through `getAccess()`. A payment provider only writes that table — the course pages, lessons and exams area never know it exists. With `BILLING_PROVIDER` unset, payments are off and every "choose a plan" button signs the reader up with the plan noted, as before; manual grants in `/admin/subscriptions` work either way.
+
+**The flow.** `/pricing` (or a paywall, which passes `?from=` — the locked lesson) → `/checkout?plan=…&interval=…` → sign up or in if needed (the forms carry `?next=` back) → the provider's hosted payment page → `/checkout/thanks`, which waits for the webhook and sends the reader back to the lesson they came from. `/profile` shows the plan, the renewal date and the invoices, and lets the reader change plan or cancel; a cancellation keeps the plan open until the end of the period paid for.
+
+**The webhook** is `POST /api/billing/webhook`. It verifies the provider's signature on the raw body (a bad one → 400, nothing stored), normalizes the event to one of `activated`, `renewed`, `plan_changed`, `cancel_scheduled`, `cancel_revoked`, `canceled`, `payment_failed`, `refunded`, and applies it with the service role through `public.apply_billing_event()` — in one transaction that first records the provider's event id in `billing_events`. A repeated delivery is answered 200 as a duplicate and applied once; an event older than the last one applied to the same subscription is ignored as stale. Each charge's invoice link is kept in `invoices` (each reader sees their own).
+
+**Setup**
+
+1. Apply `supabase/migrations/20261102000000_billing.sql` (after the earlier migrations).
+2. In `.env.local` (or the host's environment): `SUPABASE_SERVICE_ROLE_KEY`, `BILLING_PROVIDER`, `BILLING_WEBHOOK_SECRET`, and the provider's own keys. No secret is ever in the code.
+3. At the provider: set the webhook address to `<NEXT_PUBLIC_SITE_URL>/api/billing/webhook` with the same secret, turn on recurring billing, and turn on **an automatic tax invoice / receipt for every charge** (required in Israel; the provider's invoicing module or its linked invoicing service issues it — the site only keeps the link).
+
+**Developing without a provider.** `BILLING_PROVIDER=sandbox` (any long `BILLING_WEBHOOK_SECRET`) runs a built-in stand-in: a test payment page at `/billing/sandbox` (any card succeeds, a card ending in `0002` is declined), signed webhooks to the real webhook route, test invoices marked as such, and buttons in `/profile` for what the provider would send later (renewal, failed charge, refund, end of period). It refuses to run unless `NEXT_PUBLIC_SITE_URL` is localhost (or `BILLING_SANDBOX_ALLOW_REMOTE=1` on a staging site).
+
+**Adding a real provider.** Write `src/lib/billing/providers/<name>.ts` implementing `PaymentProvider` (`src/lib/billing/types.ts`): `createCheckout` (its hosted payment page, with our user id and plan in the metadata it echoes back), `verifyWebhook` (its signature scheme, and its event types mapped to ours), `cancelAtPeriodEnd` and `changePlan` (its API). Add it to the switch in `src/lib/billing/index.ts`, its keys to `.env.example`, and its webhook samples to `src/lib/billing/billing.test.ts`.
+
 ## Scripts
 
 | Command             | What it does                                      |
@@ -80,7 +98,7 @@ Usage analytics are anonymous: a random id per browser tab, never linked to an a
 | `npm run dev`       | Development server                                |
 | `npm run build`     | Production build                                  |
 | `npm start`         | Serve the production build                        |
-| `npm test`          | Engine unit tests (Node test runner)              |
+| `npm test`          | Unit tests, plus the database's rules (RLS, payments) on the real migrations in PGlite |
 | `npm run typecheck` | Generate route types and run `tsc`                |
 | `npm run lint`      | ESLint                                            |
 | `npm run db:seed`   | Upsert seed content and calculator schemas        |

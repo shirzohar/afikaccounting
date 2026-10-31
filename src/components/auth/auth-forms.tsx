@@ -45,7 +45,9 @@ export function LoginForm() {
 
 /** Reads ?plan= from the URL: the plan chosen on the pricing page, kept on the new account. */
 export function RegisterForm() {
-  const plan = useSearchParams().get("plan") ?? "";
+  const params = useSearchParams();
+  const plan = params.get("plan") ?? "";
+  const next = params.get("next") ?? "";
   const [state, action] = useActionState(signUp, initial);
   if (state.ok)
     return (
@@ -59,6 +61,7 @@ export function RegisterForm() {
   return (
     <form action={action} className="space-y-4" noValidate>
       <input type="hidden" name="plan" value={plan} />
+      <input type="hidden" name="next" value={next} />
       <FormAlert error={state.error} />
       <TextField
         label="שם מלא"
@@ -163,5 +166,21 @@ export function ResetPasswordForm() {
         עדכון הסיסמה
       </SubmitButton>
     </form>
+  );
+}
+
+/** "Already have an account?" / "New here?": the link to the other form, keeping ?next= and ?plan= — so a checkout survives the switch. */
+export function AuthSwitchLink({ to, children }: { to: "/login" | "/register"; children: React.ReactNode }) {
+  const params = useSearchParams();
+  const keep = new URLSearchParams();
+  for (const k of ["next", "plan"]) {
+    const v = params.get(k);
+    if (v) keep.set(k, v);
+  }
+  const qs = keep.toString();
+  return (
+    <Link href={qs ? `${to}?${qs}` : to} className="font-medium text-accent hover:underline">
+      {children}
+    </Link>
   );
 }

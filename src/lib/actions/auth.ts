@@ -20,6 +20,8 @@ export async function signUp(_prev: FormState, fd: FormData): Promise<FormState>
   const password = String(fd.get("password") ?? "");
   // The plan chosen on the pricing page, if they came from there: kept on the account until payment opens.
   const plan = fd.get("plan");
+  // Where to go once signed up: back into the checkout they started, if they came from one.
+  const next = safeNext(fd.get("next"), "");
   const values = { fullName, email };
 
   const fieldErrors: Record<string, string> = {};
@@ -37,13 +39,13 @@ export async function signUp(_prev: FormState, fd: FormData): Promise<FormState>
     password,
     options: {
       data: { full_name: fullName, ...(isTier(plan) && plan !== "free" ? { plan } : {}) },
-      emailRedirectTo: `${SITE_URL}/auth/confirm?next=/dashboard`,
+      emailRedirectTo: `${SITE_URL}/auth/confirm?next=${encodeURIComponent(next || "/dashboard")}`,
     },
   });
   if (error) return { error: error.message, values };
 
   // With email confirmation off, Supabase returns a session immediately.
-  if (data.session) redirect("/dashboard?welcome=1");
+  if (data.session) redirect(next ? `${next}${next.includes("?") ? "&" : "?"}welcome=1` : "/dashboard?welcome=1");
   return { ok: true, message: `שלחנו קישור אימות לכתובת ${email}. יש לפתוח אותו כדי להפעיל את החשבון.` };
 }
 

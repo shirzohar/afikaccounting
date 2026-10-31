@@ -6,25 +6,8 @@
  * in the JWT claims — so row-level security decides what comes back.
  */
 import assert from "node:assert/strict";
-import { readdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
 import { after, before, describe, it } from "node:test";
-import { PGlite } from "@electric-sql/pglite";
-
-const MIGRATIONS = join(process.cwd(), "supabase", "migrations");
-
-// Supabase's pieces the migrations rely on, reduced to what they use.
-const SUPABASE = `
-create role anon nologin; create role authenticated nologin; create role service_role nologin bypassrls;
-create schema auth; create schema storage;
-create table auth.users (id uuid primary key, email text, raw_user_meta_data jsonb default '{}', created_at timestamptz default now());
-create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
-create function auth.role() returns text language sql stable as $$ select nullif(current_setting('request.jwt.claim.role', true), '') $$;
-create table storage.buckets (id text primary key, name text, public boolean);
-create table storage.objects (id uuid primary key default gen_random_uuid(), bucket_id text, name text);
-alter table storage.objects enable row level security;
-grant usage on schema public, auth, storage to anon, authenticated;
-`;
+import { type Db, startDb } from "./pg";
 
 const ID = {
   free: "00000000-0000-4000-8000-000000000001",
@@ -40,37 +23,16 @@ const EXAM = {
 };
 
 type Reader = keyof typeof ID | "guest";
-let db: PGlite;
+let db: Db;
 
 /** Run a query as a reader, the way Supabase would: their role, and their id in the claims. */
-async function as<T>(who: Reader, sql: string): Promise<T[]> {
-  await db.exec(who === "guest" ? `reset request.jwt.claim.sub; set role anon` : `set request.jwt.claim.sub = '${ID[who]}'; set role authenticated`);
-  try {
-    return (await db.query<T>(sql)).rows;
-  } finally {
-    await db.exec(`reset role; reset request.jwt.claim.sub`);
-  }
-}
+const as = <T,>(who: Reader, sql: string) => db.as<T>(who === "guest" ? "guest" : ID[who], sql);
 /** Whether a write as this reader goes through (false when a policy refuses it). */
-async function can(who: Reader, sql: string) {
-  try {
-    await as(who, sql);
-    return true;
-  } catch {
-    return false;
-  }
-}
+const can = (who: Reader, sql: string) => db.can(who === "guest" ? "guest" : ID[who], sql);
 const ids = (rows: { exam_id?: string; id?: string }[]) => rows.map((r) => r.exam_id ?? r.id).sort();
 
 before(async () => {
-  db = new PGlite();
-  await db.exec(SUPABASE);
-  for (const f of readdirSync(MIGRATIONS).filter((x) => x.endsWith(".sql")).sort()) {
-    // gen_random_uuid() is built into Postgres; PGlite has no pgcrypto to create.
-    await db.exec(readFileSync(join(MIGRATIONS, f), "utf8").replace(/create extension[^;]*;/gi, ""));
-  }
-  // Supabase grants table access to its roles by default; RLS then decides the rows.
-  await db.exec(`grant select, insert, update, delete on all tables in schema public, storage to anon, authenticated;`);
+  db = await startDb();
   await db.exec(`
     insert into auth.users (id, email) values ${Object.entries(ID).map(([k, v]) => `('${v}', '${k}@example.com')`).join(", ")};
     update public.profiles set role = 'admin' where id = '${ID.admin}';

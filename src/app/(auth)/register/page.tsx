@@ -2,9 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 import { AuthCard } from "@/components/auth/auth-card";
-import { RegisterForm } from "@/components/auth/auth-forms";
+import { AuthSwitchLink, RegisterForm } from "@/components/auth/auth-forms";
 import { TierBadge } from "@/components/pricing/tier-badge";
 import { Skeleton } from "@/components/ui/primitives";
+import { billingEnabled } from "@/lib/billing";
 import { isTier, planOf } from "@/lib/pricing";
 
 export const metadata: Metadata = { title: "יצירת חשבון" };
@@ -17,9 +18,15 @@ export default function RegisterPage({ searchParams }: PageProps<"/register">) {
       footer={
         <>
           כבר יש לכם חשבון?{" "}
-          <Link href="/login" className="font-medium text-accent hover:underline">
-            התחברות
-          </Link>
+          <Suspense
+            fallback={
+              <Link href="/login" className="font-medium text-accent hover:underline">
+                התחברות
+              </Link>
+            }
+          >
+            <AuthSwitchLink to="/login">התחברות</AuthSwitchLink>
+          </Suspense>
         </>
       }
     >
@@ -44,7 +51,11 @@ async function ChosenPlan({ searchParams }: Pick<PageProps<"/register">, "search
         בחרתם במסלול <TierBadge tier={plan} />
       </p>
       <p className="mt-1 leading-relaxed text-muted">
+        {billingEnabled() ? "פתחו חשבון — ומיד אחר כך עוברים לדף התשלום המאובטח." : (
+          <>
         התשלום ייפתח בקרוב. בינתיים פתחו חשבון חינמי — נשמור שבחרתם ב{planOf(plan).name} ונעדכן אתכם ברגע שהמסלול נפתח. הקורס החינמי פתוח לכם כבר עכשיו.
+          </>
+        )}
       </p>
     </div>
   );

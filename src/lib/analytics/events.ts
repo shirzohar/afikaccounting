@@ -19,6 +19,10 @@ export const EVENT_KINDS = [
   "paywall_view",
   "pricing_view",
   "plan_click",
+  // Payments: a checkout started, a payment that went through, a subscription cancelled.
+  "checkout_start",
+  "payment_success",
+  "subscription_cancel",
 ] as const;
 export type EventKind = (typeof EVENT_KINDS)[number];
 

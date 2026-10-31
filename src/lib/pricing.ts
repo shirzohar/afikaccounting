@@ -65,6 +65,10 @@ export const tierAllows = (have: Tier, need: Tier) => TIER_ORDER.indexOf(have) >
 /** "₪49 לחודש", or "חינם". */
 export const priceLabel = (p: Plan) => (p.monthly === 0 ? "חינם" : `₪${p.monthly} לחודש`);
 
-/** Where a plan's "choose" button goes. There is no payment provider yet: it signs the reader up with the plan noted. */
-export const planHref = (tier: Tier) => `/pricing?plan=${tier}`;
+/** The plans page, with a plan raised; `from` is where the reader came from (a locked lesson), to send them back after paying. */
+export const planHref = (tier: Tier, from?: string) => `/pricing?plan=${tier}${from ? `&from=${encodeURIComponent(from)}` : ""}`;
+/** Payments off: a plan's "choose" button signs the reader up with the plan noted. */
 export const signupHref = (tier: Tier) => `/register?plan=${tier}`;
+/** Payments on: a plan's "choose" button starts the checkout. */
+export const checkoutHref = (tier: Tier, interval: "month" | "year" = "month", from?: string) =>
+  `/checkout?plan=${tier}&interval=${interval}${from ? `&from=${encodeURIComponent(from)}` : ""}`;
