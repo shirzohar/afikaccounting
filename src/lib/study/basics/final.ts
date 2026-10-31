@@ -16,6 +16,43 @@ export const FINAL: StudyModule = {
     { id: "ws-game", title: "המשחק: פתרו גיליון שלם" },
     { id: "ws-game-hard", title: "משחק מתקדם: גיליון עם נעלמים" },
   ],
+  // The recorded lesson, in parts: part A takes Shaked's sheet from the preliminary trial balance to the final one.
+  // Its slides fade into one another, and each chapter starts with the fade.
+  videos: [
+    {
+      src: "/videos/basics-final-a.mp4",
+      title: "מהמאזן הראשוני למאזן הסופי — גיליון רב-טורי, שלב אחר שלב",
+      part: "חלק א׳",
+      duration: 211,
+      chapters: [
+        { at: 0, title: "פתיחה" },
+        { at: 23, title: "הדרך: חמישה שלבים", screen: "worksheet" },
+        { at: 41, title: "שלב 1: מעתיקים את מאזן הבוחן", screen: "ws-solve" },
+        { at: 64, title: "מה קרה בסוף השנה — ולא נרשם", screen: "ws-question" },
+        { at: 89, title: "שלב 2: כך רושמים פקודה בגיליון" },
+        { at: 118, title: "שלב 2: כל ההתאמות בגיליון" },
+        { at: 135, title: "שלב 3: מאזן בוחן סופי — איך מחשבים" },
+        { at: 170, title: "שלב 3: מאזן הבוחן הסופי" },
+        { at: 186, title: "לסיכום חלק א׳" },
+      ],
+    },
+    {
+      src: "/videos/basics-final-b.mp4",
+      title: "מהמאזן הסופי לרווח השנה — ממיינים, מוצאים את הרווח, ובודקים",
+      part: "חלק ב׳",
+      duration: 176,
+      chapters: [
+        { at: 0, title: "פתיחה" },
+        { at: 15, title: "איפה אנחנו" },
+        { at: 27, title: "שלב 4: תוצאתי או מאזני?" },
+        { at: 60, title: "שלב 4: הגיליון ממוין" },
+        { at: 77, title: "שלב 5: רווח השנה" },
+        { at: 102, title: "הבדיקה: עמודת המאזני" },
+        { at: 127, title: "עודפים — והמאזן" },
+        { at: 147, title: "סיימתם את הקורס" },
+      ],
+    },
+  ],
   exercises: [
     {
       kind: "choice",
