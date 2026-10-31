@@ -26,21 +26,23 @@ export const BOOKS: StudyModule = {
     { id: "carry", title: "מעבר משנה לשנה" },
   ],
   // The recorded lesson, slide by slide: its slides fade into one another, and each chapter starts with the fade.
-  video: {
-    src: "/videos/basics-books.mp4",
-    title: "מכרטיסי T ועד הדוחות — לאן הולכות פקודות היומן",
-    duration: 250,
-    chapters: [
-      { at: 0, title: "פתיחה" },
-      { at: 15, title: "הדרך לדוחות: ארבע תחנות" },
-      { at: 30, title: "כרטיס T: מזומן", screen: "taccounts" },
-      { at: 76, title: "מאזן בוחן", screen: "trial" },
-      { at: 119, title: "מהיתרות לדוחות", screen: "reports" },
-      { at: 151, title: "עודפים", screen: "retained" },
-      { at: 183, title: "מעבר משנה לשנה", screen: "carry" },
-      { at: 217, title: "לסיכום" },
-    ],
-  },
+  videos: [
+    {
+      src: "/videos/basics-books.mp4",
+      title: "מכרטיסי T ועד הדוחות — לאן הולכות פקודות היומן",
+      duration: 250,
+      chapters: [
+        { at: 0, title: "פתיחה" },
+        { at: 15, title: "הדרך לדוחות: ארבע תחנות" },
+        { at: 30, title: "כרטיס T: מזומן", screen: "taccounts" },
+        { at: 76, title: "מאזן בוחן", screen: "trial" },
+        { at: 119, title: "מהיתרות לדוחות", screen: "reports" },
+        { at: 151, title: "עודפים", screen: "retained" },
+        { at: 183, title: "מעבר משנה לשנה", screen: "carry" },
+        { at: 217, title: "לסיכום" },
+      ],
+    },
+  ],
   exercises: [
     {
       ...practice("q10"),

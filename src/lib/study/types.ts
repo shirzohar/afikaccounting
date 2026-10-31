@@ -25,18 +25,20 @@ export type StudyModule = {
   tips: string[];
   /** Concept screens that are tools of their own (a calculator), reachable straight from the course page and the lesson's opening. */
   tools?: { screen: string; label: string }[];
-  /** A recorded explainer of the lesson, offered at its opening; a chapter that names a screen is offered on that screen too. */
-  video?: LessonVideo;
+  /** The lesson's recorded videos (one, or a few parts), offered at its opening; a chapter that names a screen is offered on that screen too. */
+  videos?: LessonVideo[];
 };
 
 export type LessonVideo = {
   /** The file's address on the site (under /public). */
   src: string;
   title: string;
+  /** Which part of the lesson's recording this is ("חלק א׳"), when there are several. */
+  part?: string;
   /** Length, in seconds. */
   duration: number;
-  /** Where each part of the video starts, in seconds; `screen` is the concept screen that teaches the same thing. */
-  chapters: { at: number; title: string; screen?: string }[];
+  /** Where each part of the video starts, in seconds; `screen` is the concept screen (or screens, when one slide teaches several) that teaches the same thing. */
+  chapters: { at: number; title: string; screen?: string | string[] }[];
 };
 
 /** Build a whole journal entry for a transaction, from the accounts offered (the answer's, plus distractors). */

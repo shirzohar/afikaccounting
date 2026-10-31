@@ -4,6 +4,7 @@ import { ArrowLeft, BookOpenText, Calculator, CircleCheck, ClipboardPen, Play, R
 import { motion } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { maxXp, PRACTICE_GROUPS, practiceOf, statusOf, type TopicProgress, xpOf } from "@/lib/study/score";
+import { videoAt } from "@/lib/study/paths";
 import type { StudyModule } from "@/lib/study/types";
 import { cn } from "@/lib/utils";
 
@@ -29,10 +30,10 @@ export function LessonOpening({
   onStart: () => void;
   onRestart: () => void;
   onTool: (screen: string) => void;
-  /** Opens the lesson's video at a second. */
-  onVideo?: (at: number) => void;
+  /** Opens a part of the lesson's video at a second. */
+  onVideo?: (part: number, at: number) => void;
 }) {
-  const video = onVideo && m.video;
+  const videos = onVideo ? m.videos : undefined;
   const items = practiceOf(m);
   const groups = PRACTICE_GROUPS.map((g) => ({ ...g, n: items.filter((it) => it.group === g).length })).filter((g) => g.n > 0);
   const started = statusOf(m, p) !== "new";
@@ -58,27 +59,27 @@ export function LessonOpening({
         </div>
       </div>
 
-      {video && (
-        <section aria-labelledby="opening-video" className="flex flex-wrap items-center gap-4 rounded-2xl bg-[#1b2541] p-4 text-[#fdf6e7] sm:p-5">
+      {videos?.map((v, i) => (
+        <section key={v.src} aria-labelledby={`opening-video-${i}`} className="flex flex-wrap items-center gap-4 rounded-2xl bg-[#1b2541] p-4 text-[#fdf6e7] sm:p-5">
           <button
             type="button"
-            onClick={() => onVideo(0)}
-            aria-label={`צפייה בסרטון: ${video.title}`}
+            onClick={() => onVideo!(i, 0)}
+            aria-label={`צפייה בסרטון: ${v.title}`}
             className="grid h-16 w-16 shrink-0 place-items-center rounded-full bg-[#ffc93c] text-[#1b2541] shadow-[0_10px_28px_-10px_#ffc93c] transition hover:scale-105 active:scale-95"
           >
             <Play className="h-7 w-7 translate-x-[-2px] fill-current" aria-hidden />
           </button>
           <div className="min-w-0 flex-[1_1_16rem] space-y-1">
             <p className="num text-[13px] font-semibold text-[#ffc93c]">
-              סרטון השיעור · {clock(video.duration)} דק׳ · {video.chapters.length} פרקים
+              סרטון השיעור{v.part && ` · ${v.part}`} · {clock(v.duration)} דק׳ · {v.chapters.length} פרקים
             </p>
-            <p id="opening-video" className="text-[18px] font-bold leading-snug">
-              {video.title}
+            <p id={`opening-video-${i}`} className="text-[18px] font-bold leading-snug">
+              {v.title}
             </p>
-            <p className="text-[14px] text-[#c9cfdf]">צפו קודם בסרטון ואז תרגלו במסכים — או דלגו ישר לשיעור. אפשר לחזור לכל קטע בו מכל מסך.</p>
+            {i === 0 && <p className="text-[14px] text-[#c9cfdf]">צפו קודם בסרטון ואז תרגלו במסכים — או דלגו ישר לשיעור. אפשר לחזור לכל קטע בו מכל מסך.</p>}
           </div>
         </section>
-      )}
+      ))}
 
       <div className="grid gap-4 md:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
         <section aria-labelledby="opening-learn">
@@ -88,7 +89,7 @@ export function LessonOpening({
           <ol className="space-y-1.5">
             {m.screens.map((s, i) => {
               const seen = p.seen.includes(i);
-              const clip = video ? video.chapters.find((c) => c.screen === s.id)?.at : undefined;
+              const clip = videoAt(videos, s.id);
               return (
                 <li key={s.id} className="flex items-center gap-2.5 rounded-lg bg-surface-2 px-3 py-2 text-[14.5px] text-fg">
                   <span
@@ -97,14 +98,15 @@ export function LessonOpening({
                     {seen ? <CircleCheck className="h-3.5 w-3.5" aria-label="נקרא" /> : i + 1}
                   </span>
                   <span className="min-w-0 flex-1">{s.title}</span>
-                  {clip !== undefined && (
+                  {clip && (
                     <button
                       type="button"
-                      onClick={() => onVideo!(clip)}
-                      aria-label={`${s.title} בסרטון, מ-${clock(clip)}`}
+                      onClick={() => onVideo!(clip.part, clip.at)}
+                      aria-label={`${s.title} בסרטון${videos!.length > 1 ? `, ${videos![clip.part].part ?? ""}` : ""}, מ-${clock(clip.at)}`}
                       className="num inline-flex shrink-0 items-center gap-1 rounded-md bg-[#fbbf24]/20 px-2 py-0.5 text-[12px] font-bold text-amber-800 transition hover:bg-[#fbbf24]/40 dark:text-amber-300"
                     >
-                      <Play className="h-3 w-3 fill-current" aria-hidden /> {clock(clip)}
+                      <Play className="h-3 w-3 fill-current" aria-hidden /> {videos!.length > 1 && `${videos![clip.part].part} · `}
+                      {clock(clip.at)}
                     </button>
                   )}
                 </li>

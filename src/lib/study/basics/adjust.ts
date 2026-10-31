@@ -48,6 +48,24 @@ export const ADJUST: StudyModule = {
     { id: "inventory", title: "מלאי סגירה" },
     { id: "ronen", title: "דוגמה מלאה: רונן בע״מ" },
   ],
+  // The recorded lesson, slide by slide: its slides fade into one another, and each chapter starts with the fade.
+  // One slide teaches both cut-off accounts on each side, so it opens from both of their screens.
+  videos: [
+    {
+      src: "/videos/basics-adjust.mp4",
+      title: "התאמות סוף שנה — כל שנה נושאת רק את מה ששייך לה",
+      duration: 220,
+      chapters: [
+        { at: 0, title: "פתיחה" },
+        { at: 15, title: "חותכים את השנה ב-31.12", screen: "accrual" },
+        { at: 47, title: "ארבעת חשבונות החתך" },
+        { at: 72, title: "בצד ההוצאות: מראש ולשלם", screen: ["prepaid", "accrued"] },
+        { at: 110, title: "בצד ההכנסות: מראש ולקבל", screen: ["unearned", "receivable"] },
+        { at: 155, title: "מלאי סגירה", screen: "inventory" },
+        { at: 192, title: "לסיכום" },
+      ],
+    },
+  ],
   exercises: [
     // Prepaid expenses.
     journal(

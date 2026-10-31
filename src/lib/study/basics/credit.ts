@@ -63,6 +63,40 @@ export const CREDIT: StudyModule = {
     { id: "cl-calc", title: "מחשבון: בדקו את התשובה שלכם" },
   ],
   tools: [{ screen: "cl-calc", label: "מחשבון הפסדי אשראי" }],
+  // The recorded lesson comes in two parts: the ideas and their entries (part A), then the method of the three rules (part B).
+  // Its slides fade into one another, and each chapter starts with the fade.
+  videos: [
+    {
+      src: "/videos/basics-credit-a.mp4",
+      title: "הפסדי אשראי — לא כל לקוח ישלם",
+      part: "חלק א׳",
+      duration: 201,
+      chapters: [
+        { at: 0, title: "פתיחה" },
+        { at: 13, title: "הרעיון: לא כל לקוח ישלם", screen: "cl-idea" },
+        { at: 40, title: "ברוטו, הפרשה ונטו", screen: ["cl-net", "cl-allowance"] },
+        { at: 68, title: "חוב אבוד — וחוב שחזר", screen: ["cl-terms", "cl-recovery"] },
+        { at: 105, title: "סוף השנה: השלמה או ביטול", screen: "cl-entries" },
+        { at: 139, title: "הפרשה ספציפית וכללית", screen: "cl-specific" },
+        { at: 174, title: "לסיכום" },
+      ],
+    },
+    {
+      src: "/videos/basics-credit-b.mp4",
+      title: "מתווה 3 הכללים — שיטה אחת לכל שאלה",
+      part: "חלק ב׳",
+      duration: 199,
+      chapters: [
+        { at: 0, title: "פתיחה" },
+        { at: 18, title: "שלושה כללים, באותו סדר", screen: "cl-method" },
+        { at: 48, title: "מה נכנס לכל צד" },
+        { at: 78, title: "דוגמה: אלון בע״מ", screen: "cl-first" },
+        { at: 107, title: "אלון: שני הכרטיסים" },
+        { at: 143, title: "אלון: הפקודה והמאזן" },
+        { at: 174, title: "לסיכום" },
+      ],
+    },
+  ],
   exercises: [
     journal(
       "first-allowance",

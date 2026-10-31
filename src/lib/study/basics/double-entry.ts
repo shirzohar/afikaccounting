@@ -27,6 +27,28 @@ export const DOUBLE_ENTRY: StudyModule = {
     { id: "loan", title: "הלוואה: קבלה, פירעון וריבית" },
     { id: "actions", title: "שמות קבועים ופעולות נפוצות" },
   ],
+  // The recorded lesson, slide by slide: its slides fade into one another, and each chapter starts with the fade.
+  // A screen that covers two slides (double entry and the simple entry; credit and the compound entry) opens at the first.
+  videos: [
+    {
+      src: "/videos/basics-double-entry.mp4",
+      title: "הרישום הכפול ופקודות יומן — איך רושמים כל אירוע בעסק",
+      duration: 234,
+      chapters: [
+        { at: 0, title: "פתיחה" },
+        { at: 14, title: "נכסים = התחייבויות + הון", screen: "equation" },
+        { at: 45, title: "הוצאה מול השקעה", screen: "expense" },
+        { at: 71, title: "רישום כפול", screen: "double" },
+        { at: 86, title: "פקודת יומן פשוטה" },
+        { at: 109, title: "עסקאות באשראי", screen: "credit" },
+        { at: 133, title: "פקודה מורכבת" },
+        { at: 154, title: "מקדמות: הכסף לפני העסקה", screen: "advances" },
+        { at: 174, title: "הלוואה: קבלה, ריבית ופירעון", screen: "loan" },
+        { at: 195, title: "הפעולות הנפוצות", screen: "actions" },
+        { at: 216, title: "לסיכום" },
+      ],
+    },
+  ],
   exercises: [
     {
       kind: "number",

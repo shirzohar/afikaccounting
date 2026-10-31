@@ -22,6 +22,7 @@ import {
   subCount,
   xpOf,
 } from "@/lib/study/score";
+import { videoAt } from "@/lib/study/paths";
 import type { LessonVideo, StudyModule } from "@/lib/study/types";
 import { BottomBar } from "./bottom-bar";
 import { StudyHeader } from "./header";
@@ -110,8 +111,8 @@ export function StudyShell({ module: m, screens, next }: { module: StudyModule; 
     window.history.replaceState(window.history.state, "", `${pathname}?screen=${screen}`);
   };
   // The lesson's video, in a panel over the lesson: closed, or open at a second.
-  const [video, setVideo] = useState<{ open: boolean; at: number }>({ open: false, at: 0 });
-  const watch = (at = 0) => setVideo({ open: true, at });
+  const [video, setVideo] = useState<{ open: boolean; part: number; at: number }>({ open: false, part: 0, at: 0 });
+  const watch = (part = 0, at = 0) => setVideo({ open: true, part, at });
   // In the browser only: the panel goes to the page's body.
   const mounted = useSyncExternalStore(noSubscribe, () => true, () => false);
   const heading = useRef<HTMLHeadingElement>(null);
@@ -215,7 +216,7 @@ export function StudyShell({ module: m, screens, next }: { module: StudyModule; 
   }, []);
 
   const id = STEPS[step].id;
-  let card: { icon: ReactNode; title: string; count?: string; content: ReactNode; clip?: number };
+  let card: { icon: ReactNode; title: string; count?: string; content: ReactNode; clip?: { part: number; at: number } };
   if (opening) {
     card = {
       icon: <Sparkles className="h-5 w-5" />,
@@ -226,7 +227,7 @@ export function StudyShell({ module: m, screens, next }: { module: StudyModule; 
           progress={p}
           onStart={enter}
           onTool={openTool}
-          onVideo={m.video ? watch : undefined}
+          onVideo={m.videos?.length ? watch : undefined}
           onRestart={() => {
             restart();
             setOpening(false);
@@ -240,7 +241,7 @@ export function StudyShell({ module: m, screens, next }: { module: StudyModule; 
       icon: <BookOpenText className="h-5 w-5" />,
       title: m.screens[place.sub].title,
       count: m.screens.length > 1 ? `מושג ${place.sub + 1} מתוך ${m.screens.length}` : undefined,
-      clip: m.video?.chapters.find((c) => c.screen === m.screens[place.sub].id)?.at,
+      clip: videoAt(m.videos, m.screens[place.sub].id),
       content: (
         <div className="space-y-4">
           {s.lead && <div className="rounded-2xl border border-accent/25 bg-accent-soft px-4 py-3.5 text-[16px] font-semibold leading-relaxed text-fg sm:px-5">{s.lead}</div>}
@@ -340,12 +341,12 @@ export function StudyShell({ module: m, screens, next }: { module: StudyModule; 
                 {clip !== undefined && (
                   <button
                     type="button"
-                    onClick={() => watch(clip)}
+                    onClick={() => watch(clip.part, clip.at)}
                     className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg bg-[#fbbf24] px-2.5 text-[13px] font-bold text-[#3b2600] transition hover:brightness-105"
                     title="הקטע בסרטון שמסביר את המושג הזה"
                   >
                     <PlayCircle className="h-4 w-4" aria-hidden />
-                    <span className="max-sm:hidden">בסרטון ·</span> <span className="num">{clock(clip)}</span>
+                    <span className="max-sm:hidden">בסרטון ·{m.videos!.length > 1 && ` ${m.videos![clip.part].part ?? ""} ·`}</span> <span className="num">{clock(clip.at)}</span>
                   </button>
                 )}
                 {card.count && <span className="num shrink-0 rounded-md bg-surface-2 px-2 py-0.5 text-[12px] font-semibold text-muted">{card.count}</span>}
@@ -387,9 +388,16 @@ export function StudyShell({ module: m, screens, next }: { module: StudyModule; 
       </LessonContext>
       {/* Over the whole page, not inside the moving card: a transformed ancestor would hold a fixed panel in place. */}
       {mounted &&
-        m.video &&
+        m.videos?.[video.part] &&
         createPortal(
-          <VideoDrawer item={playable(m.slug, m.video)} startAt={video.at} open={video.open} onClose={() => setVideo((v) => ({ ...v, open: false }))} label="סרטון השיעור" fullLesson={false} />,
+          <VideoDrawer
+            item={playable(`${m.slug}-${video.part}`, m.videos[video.part])}
+            startAt={video.at}
+            open={video.open}
+            onClose={() => setVideo((v) => ({ ...v, open: false }))}
+            label={m.videos[video.part].part ? `סרטון השיעור · ${m.videos[video.part].part}` : "סרטון השיעור"}
+            fullLesson={false}
+          />,
           document.body,
         )}
     </MotionConfig>

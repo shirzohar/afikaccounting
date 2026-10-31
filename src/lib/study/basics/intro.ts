@@ -75,23 +75,25 @@ export const INTRO: StudyModule = {
     { id: "types", title: "אוצר המילים: חמישה סוגים" },
   ],
   // The recorded lesson, slide by slide: each chapter starts where the video cuts to its slide.
-  video: {
-    src: "/videos/basics-intro.mp4",
-    title: "מהי בכלל חשבונאות — השפה שכל עסק מדבר",
-    duration: 263,
-    chapters: [
-      { at: 0, title: "פתיחה" },
-      { at: 17, title: "נתחיל מסיפור: מאפייה קטנה", screen: "language" },
-      { at: 42, title: "חשבונאות היא שפה" },
-      { at: 70, title: "הדקדוק: תקני חשבונאות ו-IFRS", screen: "grammar" },
-      { at: 100, title: "מתרגמים אירוע לחשבונאות", screen: "landscape" },
-      { at: 139, title: "שני דוחות שכל עסק מספר", screen: "what" },
-      { at: 176, title: "העסק הוא ישות נפרדת", screen: "entity" },
-      { at: 191, title: "חמישה סוגי חשבונות", screen: "types" },
-      { at: 221, title: "המלכודת: כסף שנכנס הוא לא הכנסה" },
-      { at: 246, title: "לסיכום" },
-    ],
-  },
+  videos: [
+    {
+      src: "/videos/basics-intro.mp4",
+      title: "מהי בכלל חשבונאות — השפה שכל עסק מדבר",
+      duration: 263,
+      chapters: [
+        { at: 0, title: "פתיחה" },
+        { at: 17, title: "נתחיל מסיפור: מאפייה קטנה", screen: "language" },
+        { at: 42, title: "חשבונאות היא שפה" },
+        { at: 70, title: "הדקדוק: תקני חשבונאות ו-IFRS", screen: "grammar" },
+        { at: 100, title: "מתרגמים אירוע לחשבונאות", screen: "landscape" },
+        { at: 139, title: "שני דוחות שכל עסק מספר", screen: "what" },
+        { at: 176, title: "העסק הוא ישות נפרדת", screen: "entity" },
+        { at: 191, title: "חמישה סוגי חשבונות", screen: "types" },
+        { at: 221, title: "המלכודת: כסף שנכנס הוא לא הכנסה" },
+        { at: 246, title: "לסיכום" },
+      ],
+    },
+  ],
   exercises: [
     {
       kind: "choice",
