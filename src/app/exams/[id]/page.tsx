@@ -1,9 +1,10 @@
-import { ArrowRight, Download, FileText, PlayCircle } from "lucide-react";
+import { Download, FileText, PlayCircle } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { RichParagraph } from "@/components/content/rich-text";
+import { Breadcrumbs } from "@/components/layout/breadcrumbs";
 import { ExamBlocks } from "@/components/exams/exam-blocks";
 import { EXAMS_LEAD } from "@/components/exams/exam-card";
 import { topicLabel } from "@/components/exams/exam-grid";
@@ -41,9 +42,7 @@ export default async function ExamPage({ params }: PageProps<"/exams/[id]">) {
   const topic = TOPICS.find((t) => t.id === exam.topic);
   return (
     <Container className="pt-10 pb-16 sm:pt-14">
-      <Link href={`${EXAMS_HUB.href}?topic=${exam.topic}`} className="inline-flex items-center gap-1 text-sm font-medium text-accent hover:underline">
-        <ArrowRight className="h-4 w-4" aria-hidden /> {EXAMS_HUB.label} · {topicLabel(exam.topic)}
-      </Link>
+      <Breadcrumbs root={{ label: EXAMS_HUB.label, href: EXAMS_HUB.href }} trail={[{ label: topicLabel(exam.topic), href: `${EXAMS_HUB.href}?topic=${exam.topic}` }, { label: exam.title }]} />
       <div className="mt-4 flex flex-wrap items-center gap-2">
         {exam.isSample ? <TierBadge tier="free" label="לדוגמה — חינם" /> : <TierBadge tier="exams" />}
         <span className="num text-sm text-muted">{examWhen(exam)}</span>

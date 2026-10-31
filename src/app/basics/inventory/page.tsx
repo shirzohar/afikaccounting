@@ -30,7 +30,7 @@ export default function InventoryPage() {
       <LegacyHashRedirect redirects={REDIRECTS} />
       <div className="bg-grid pointer-events-none absolute inset-x-0 top-0 h-80 [mask-image:linear-gradient(to_bottom,black,transparent)]" />
       <Container className="relative pt-10 pb-16 sm:pt-14">
-        <Breadcrumbs trail={[{ label: "שלב 1 · יסודות" }, { label: "מלאי (IAS 2)" }]} />
+        <Breadcrumbs trail={[{ label: "שלב 2 · קורסים מתקדמים" }, { label: "מלאי (IAS 2)" }]} />
         <h1 className="mt-2 text-3xl font-semibold tracking-tight text-fg sm:text-4xl">
           מלאי <span className="text-gradient">מאפס ועד מבחן</span>
         </h1>

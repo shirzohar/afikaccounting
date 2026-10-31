@@ -1,10 +1,11 @@
 "use client";
 
-import { BookOpenText, ClipboardPen, Flag, PlayCircle, Sparkles } from "lucide-react";
+import { BookOpenText, ChevronDown, ClipboardPen, Flag, PlayCircle, Sparkles } from "lucide-react";
 import { AnimatePresence, MotionConfig, motion } from "motion/react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { type ReactNode, Suspense, useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
+import { Breadcrumbs } from "@/components/layout/breadcrumbs";
 import { VideoDrawer } from "@/components/video/video-drawer";
 import {
   clampPlace,
@@ -15,6 +16,7 @@ import {
   position,
   practiceAt,
   practiceId,
+  practiceOf,
   recordExercise,
   recordTrap,
   retryMissed,
@@ -22,16 +24,19 @@ import {
   subCount,
   xpOf,
 } from "@/lib/study/score";
+import { neighbours, percentOf } from "@/lib/study/outline";
 import { videoAt } from "@/lib/study/paths";
 import type { LessonVideo, StudyModule } from "@/lib/study/types";
-import { BottomBar } from "./bottom-bar";
-import { StudyHeader } from "./header";
+import { type CourseInfo, CourseOutline } from "./course-outline";
 import { JournalSimulator } from "./journal-simulator";
 import { clock, LessonOpening } from "./lesson-opening";
+import { LessonNav } from "./lesson-nav";
+import { LessonStats } from "./lesson-stats";
 import { PracticeIntro } from "./practice-intro";
-import { resetTopic, updateTopic, useTopic } from "./progress-store";
+import { resetTopic, setLast, updateTopic, useTopic } from "./progress-store";
 import { QuestionExercise } from "./question-exercise";
 import { LessonContext } from "./screen-link";
+import { Sheet } from "./sheet";
 import { cue } from "./sound";
 import { SummaryCard } from "./summary-card";
 import { TrapQuiz } from "./trap-quiz";
@@ -75,13 +80,16 @@ const playable = (slug: string, v: LessonVideo) => ({
 export type ScreenContent = { lead?: ReactNode; body: ReactNode };
 
 /**
- * The lesson, full screen: a fixed header and bottom bar, and between them one
- * card whose body alone scrolls when it must. The place in the lesson lives in
- * the progress store, so a return or a refresh resumes it; the address follows
- * with ?step=, and ?screen=<id> or ?step=<n> on arrival opens that place. Keys: ← next, → previous (right to
- * left), Esc leaves — unless a control inside the card already used the key.
+ * The lesson, as a page of the site: the course beside it (every lesson, and
+ * this one's concepts, practice and summary — each a way straight there; a
+ * sheet on a phone), the screen in the page's own flow, and "previous" and
+ * "next" at its foot, each naming where it goes. The place in the lesson lives
+ * in the progress store, so a return or a refresh resumes it; the address
+ * follows with ?step=, and ?screen=<id> or ?step=<n> on arrival opens that
+ * place. Keys: ← next, → previous (right to left) — unless a control inside
+ * the screen already used the key.
  */
-export function StudyShell({ module: m, screens, next }: { module: StudyModule; screens: ScreenContent[]; next?: { href: string; label: string } }) {
+export function StudyShell({ module: m, screens, next, course }: { module: StudyModule; screens: ScreenContent[]; next?: { href: string; label: string }; course: CourseInfo }) {
   const slug = m.slug;
   const p = useTopic(slug);
   const router = useRouter();
@@ -117,7 +125,9 @@ export function StudyShell({ module: m, screens, next }: { module: StudyModule; 
   const mounted = useSyncExternalStore(noSubscribe, () => true, () => false);
   const heading = useRef<HTMLHeadingElement>(null);
   const body = useRef<HTMLDivElement>(null);
+  const top = useRef<HTMLDivElement>(null);
   const first = useRef(true);
+  const [sheet, setSheet] = useState(false);
 
   const go = (to: Place, d: 1 | -1) => {
     setDir(d);
@@ -171,22 +181,34 @@ export function StudyShell({ module: m, screens, next }: { module: StudyModule; 
     if (p.skipped) updateTopic(slug, (q) => ({ ...q, skipped: false }));
   }, [slug, p.skipped]);
 
-  // The page behind stays still while the lesson is open.
+  // On every new screen: the page back to the lesson's top, and focus to its heading for screen readers (not on arrival).
   useEffect(() => {
-    const html = document.documentElement;
-    const before = html.style.overflow;
-    html.style.overflow = "hidden";
-    return () => {
-      html.style.overflow = before;
-    };
-  }, []);
-
-  // On every new screen: back to its top, and focus to its heading for screen readers (not on arrival).
-  useEffect(() => {
-    body.current?.scrollTo({ top: 0 });
-    if (first.current) first.current = false;
-    else heading.current?.focus({ preventScroll: true });
+    if (first.current) {
+      first.current = false;
+      return;
+    }
+    if ((top.current?.getBoundingClientRect().top ?? 0) < 0) top.current?.scrollIntoView({ block: "start" });
+    heading.current?.focus({ preventScroll: true });
   }, [place.step, place.sub, opening]);
+
+  // "Continue where you left off", across the site: this lesson, and how far through it.
+  const percent = percentOf(m, p);
+  useEffect(() => {
+    setLast({ slug, title: m.title, course: m.course, n: m.n, percent });
+  }, [slug, m.title, m.course, m.n, percent]);
+
+  /** From the course list: a place in this lesson, or (null) its opening. */
+  const goTo = (to: Place | null) => {
+    setSheet(false);
+    if (to === null) {
+      setDir(-1);
+      setMoved(true);
+      return setOpening(true);
+    }
+    const ahead = opening || position(m, to).at > at;
+    setOpening(false);
+    go(to, ahead ? 1 : -1);
+  };
 
   const keys = useRef<(e: KeyboardEvent) => void>(undefined);
   const forwarding = useRef(false);
@@ -318,6 +340,12 @@ export function StudyShell({ module: m, screens, next }: { module: StudyModule; 
   // The opening already offers to resume or restart; the reminder is for an arrival that skipped it.
   const resumable = !opening && !moved && (p.step > 0 || p.sub > 0);
 
+  // "Previous" and "next", named. Trying missed questions again, "next" goes to the next of them.
+  const around = neighbours(m, place, opening);
+  const nextLabel = retry?.length ? (retry.some((id) => practiceOf(m).findIndex((it) => practiceId(it) === id) + 1 > place.sub) ? "השאלה הבאה לחזרה" : "לסיכום") : around.next?.label;
+  const where = opening ? "על השיעור" : id === "learn" ? `מושג ${place.sub + 1} מתוך ${m.screens.length}` : id === "practice" ? (card.count ?? "תרגול") : "סיכום";
+  const outline = <CourseOutline course={course} current={m} progress={p} place={place} opening={opening} onGo={goTo} />;
+
   return (
     <MotionConfig reducedMotion="user">
       {/* Its own boundary: reading the address must not keep the lesson itself from prerendering. */}
@@ -325,19 +353,41 @@ export function StudyShell({ module: m, screens, next }: { module: StudyModule; 
         <AddressPlace module={m} onApply={arrived} />
       </Suspense>
       <LessonContext value={{ slug, jump }}>
-        <div className="fixed inset-0 z-50 flex h-dvh flex-col overflow-hidden bg-canvas" aria-label={`שיעור אינטראקטיבי: ${m.title}`} role="region">
-          <div className="bg-grid pointer-events-none absolute inset-x-0 top-0 h-72 [mask-image:linear-gradient(to_bottom,black,transparent)]" aria-hidden />
-          <StudyHeader course={m.course} title={`שיעור ${m.n}: ${m.title}`} backHref={m.backHref} step={step} at={at} total={total} streak={p.streak} xp={xpOf(m, p)} />
+        {/* On a phone: where you are in the course, and the way to all of it. */}
+        <div className="no-print sticky top-16 z-30 border-b border-line bg-surface/95 backdrop-blur lg:hidden">
+          <button type="button" onClick={() => setSheet(true)} aria-haspopup="dialog" className="flex w-full flex-col gap-1.5 px-4 py-2 text-start">
+            <span className="flex w-full items-center gap-1.5 text-[13px]">
+              <span className="num font-bold text-fg">
+                שיעור {m.n} מתוך {course.lessons.length}
+              </span>
+              <span className="num min-w-0 truncate text-muted">· {where}</span>
+              <span className="ms-auto inline-flex shrink-0 items-center gap-0.5 font-semibold text-accent">
+                הקורס <ChevronDown className="h-4 w-4" aria-hidden />
+              </span>
+            </span>
+            <span className="block h-1.5 w-full overflow-hidden rounded-full bg-surface-2" role="progressbar" aria-label="התקדמות בשיעור" aria-valuemin={0} aria-valuemax={total} aria-valuenow={opening ? 0 : at}>
+              <motion.span className="block h-full rounded-full bg-accent" initial={false} animate={{ width: `${((opening ? 0 : at) / total) * 100}%` }} />
+            </span>
+          </button>
+        </div>
 
-          <div className="relative min-h-0 flex-1 px-3 py-3 sm:px-4 sm:py-5">
-            <div className="card mx-auto flex h-full max-w-6xl flex-col overflow-hidden 2xl:max-w-7xl">
-              <div className="flex shrink-0 items-center gap-2.5 border-b border-line px-4 py-3 sm:px-5">
+        {/* The whole width of the screen: the course at its right edge, the lesson spread across the rest. */}
+        <div className="w-full px-4 pt-5 sm:px-6 lg:ps-4 lg:pe-8 lg:pt-6 2xl:pe-12">
+          <div className="grid gap-6 lg:grid-cols-[18.5rem_minmax(0,1fr)] xl:gap-10">
+            <aside className="no-print hidden lg:block" aria-label="הקורס">
+              <div className="sticky top-20 max-h-[calc(100dvh-6rem)] overflow-y-auto overscroll-contain pb-6 [scrollbar-width:thin]">{outline}</div>
+            </aside>
+
+            <div ref={top} className="min-w-0 scroll-mt-32 lg:scroll-mt-24" role="region" aria-label={`שיעור אינטראקטיבי: ${m.title}`}>
+              <Breadcrumbs trail={[{ label: course.title, href: course.href }, { label: `שיעור ${m.n}: ${m.title}` }]} />
+              <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
                 <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-accent-soft text-accent" aria-hidden>
                   {card.icon}
                 </span>
-                <h1 ref={heading} tabIndex={-1} className="min-w-0 flex-1 truncate text-[17px] font-semibold text-fg outline-none sm:text-lg">
+                <h1 ref={heading} tabIndex={-1} className="min-w-0 flex-[1_1_16rem] text-2xl font-semibold tracking-tight text-fg outline-none sm:text-[28px]">
                   {card.title}
                 </h1>
+                {card.count && <span className="num shrink-0 rounded-md bg-surface-2 px-2 py-0.5 text-[12px] font-semibold text-muted">{card.count}</span>}
                 {clip !== undefined && (
                   <button
                     type="button"
@@ -346,27 +396,27 @@ export function StudyShell({ module: m, screens, next }: { module: StudyModule; 
                     title="הקטע בסרטון שמסביר את המושג הזה"
                   >
                     <PlayCircle className="h-4 w-4" aria-hidden />
-                    <span className="max-sm:hidden">בסרטון ·{m.videos!.length > 1 && ` ${m.videos![clip.part].part ?? ""} ·`}</span> <span className="num">{clock(clip.at)}</span>
+                    בסרטון ·{m.videos!.length > 1 && ` ${m.videos![clip.part].part ?? ""} ·`} <span className="num">{clock(clip.at)}</span>
                   </button>
                 )}
-                {card.count && <span className="num shrink-0 rounded-md bg-surface-2 px-2 py-0.5 text-[12px] font-semibold text-muted">{card.count}</span>}
+                <div className="ms-auto">
+                  <LessonStats streak={p.streak} xp={xpOf(m, p)} />
+                </div>
               </div>
+
               {resumable && (
-                <div className="flex shrink-0 items-center gap-3 border-b border-line bg-accent-soft/60 px-4 py-2 text-[13px] text-fg sm:px-5">
+                <div className="mt-4 flex items-center gap-3 rounded-xl border border-accent/30 bg-accent-soft/60 px-4 py-2 text-[13px] text-fg">
                   <span className="flex-1">ממשיכים מאיפה שעצרתם.</span>
                   <button type="button" onClick={() => setMoved(true)} className="font-semibold text-accent hover:underline">
                     הבנתי
                   </button>
-                  <button
-                    type="button"
-                    onClick={restart}
-                    className="font-semibold text-muted hover:text-fg hover:underline"
-                  >
+                  <button type="button" onClick={restart} className="font-semibold text-muted hover:text-fg hover:underline">
                     להתחיל מחדש
                   </button>
                 </div>
               )}
-              <div ref={body} className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+
+              <div ref={body} className="card mt-4 overflow-hidden">
                 <AnimatePresence mode="wait" initial={false}>
                   <motion.div
                     key={opening ? "opening" : `${place.step}-${place.sub}`}
@@ -374,17 +424,26 @@ export function StudyShell({ module: m, screens, next }: { module: StudyModule; 
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: 28 * dir }}
                     transition={{ duration: 0.2, ease: "easeOut" }}
-                    className="p-4 sm:p-5"
+                    className="p-4 sm:p-6"
                   >
                     {card.content}
                   </motion.div>
                 </AnimatePresence>
               </div>
+
+              {/* A direct child of the lesson's column, so it sticks to the bottom of the screen all the way down the screen. */}
+              <LessonNav
+                className="mt-6"
+                prev={around.prev ? { label: around.prev.label, onClick: prevScreen } : undefined}
+                next={(opening || !last) && nextLabel ? { label: nextLabel, onClick: nextScreen } : undefined}
+              />
             </div>
           </div>
-
-          <BottomBar step={step} first={opening} last={last && !opening} onPrev={prevScreen} onNext={nextScreen} onJump={(i) => i !== step && go({ step: i, sub: 0 }, i > step ? 1 : -1)} />
         </div>
+
+        <Sheet open={sheet} title={m.course} onClose={() => setSheet(false)}>
+          {outline}
+        </Sheet>
       </LessonContext>
       {/* Over the whole page, not inside the moving card: a transformed ancestor would hold a fixed panel in place. */}
       {mounted &&

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowLeft, ArrowRight } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { type ChapterLink, ChapterNav } from "@/components/basics/chapter-nav";
 import { StatementsChapters } from "@/components/basics/statements";
 import { Container } from "@/components/ui/primitives";
@@ -41,12 +41,7 @@ export default function StatementsPage() {
     <div className="relative">
       <div className="bg-grid pointer-events-none absolute inset-x-0 top-0 h-80 [mask-image:linear-gradient(to_bottom,black,transparent)]" />
       <Container className="relative pt-10 pb-16 sm:pt-14">
-        <Link href="/basics" className="inline-flex items-center gap-1 text-sm font-medium text-accent hover:underline">
-          <ArrowRight className="h-4 w-4" aria-hidden /> חזרה לחשבונאות מאפס
-        </Link>
-        <div className="mt-4">
-          <Breadcrumbs trail={[{ label: "שלב 1 · יסודות" }, { label: "הכנת דוחות כספיים (IFRS 18)" }]} />
-        </div>
+        <Breadcrumbs trail={[{ label: "שלב 2 · קורסים מתקדמים" }, { label: "הכנת דוחות כספיים (IFRS 18)" }]} />
         <h1 className="mt-2 text-3xl font-semibold tracking-tight text-fg sm:text-4xl">
           הכנת דוחות כספיים <span className="text-gradient">והמסגרת המושגית</span>
         </h1>

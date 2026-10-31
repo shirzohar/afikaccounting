@@ -12,6 +12,7 @@ import { canAccessWith } from "@/lib/access";
 import { getAccess } from "@/lib/auth/access";
 import { TOPICS, topicByHref } from "@/lib/catalog";
 import { STUDY_MODULES, studyHref } from "@/lib/study";
+import { outlineOf } from "@/lib/study/paths";
 
 const ORPHANS = orphanScreens(Object.values(STUDY_MODULES));
 if (ORPHANS.length) throw new Error(`Screens no lesson shows: ${ORPHANS.join(", ")}`);
@@ -68,9 +69,23 @@ async function Lesson({ params }: Pick<PageProps<"/study/[topic]">, "params">) {
     <>
       <TrackEvent event={{ kind: "lesson_start", target: m.slug, meta: { course: topic.id, n: m.n } }} />
       {topic.tier === "free" && m.n === last && <CourseDone module={m} course={topic.id} />}
-      <StudyShell module={m} screens={screensFor(m)} next={nextOf(m.slug)} />
+      <StudyShell module={m} screens={screensFor(m)} next={nextOf(m.slug)} course={courseOf(m.slug)} />
     </>
   );
+}
+
+/**
+ * The course beside a lesson: its page, and its lessons in order — this one
+ * whole, the others as outlines (titles and counts, never their questions).
+ */
+function courseOf(slug: string) {
+  const m = STUDY_MODULES[slug];
+  const topic = topicByHref(m.backHref)!;
+  const lessons = Object.values(STUDY_MODULES)
+    .filter((x) => x.backHref === m.backHref)
+    .sort((a, b) => a.n - b.n)
+    .map((x) => (x.slug === slug ? x : outlineOf(x)));
+  return { title: topic.standard ? `${topic.title} (${topic.standard})` : topic.title, href: topic.href, lessons };
 }
 
 /** A locked lesson's place: its name and where it sits in the course, and the paywall. */
@@ -97,12 +112,17 @@ function LockedLesson({ slug }: { slug: string }) {
   );
 }
 
-/** The lesson screen's frame, full screen like the shell, until the lesson arrives. */
+/** The lesson page's frame — the course beside it, the screen — until the lesson arrives. */
 function LessonSkeleton() {
   return (
-    <div className="fixed inset-0 z-50 flex h-dvh flex-col gap-4 bg-canvas px-3 py-3 sm:px-4 sm:py-5" aria-busy="true" aria-label="טוען שיעור">
-      <Skeleton className="h-12" />
-      <Skeleton className="min-h-0 flex-1 rounded-2xl" />
+    <div className="w-full px-4 pt-5 sm:px-6 lg:ps-4 lg:pe-8 lg:pt-6 2xl:pe-12" aria-busy="true" aria-label="טוען שיעור">
+      <div className="grid gap-6 lg:grid-cols-[18.5rem_minmax(0,1fr)] xl:gap-10">
+        <Skeleton className="hidden h-[32rem] rounded-2xl lg:block" />
+        <div className="space-y-4">
+          <Skeleton className="h-10 w-2/3" />
+          <Skeleton className="h-96 rounded-2xl" />
+        </div>
+      </div>
     </div>
   );
 }

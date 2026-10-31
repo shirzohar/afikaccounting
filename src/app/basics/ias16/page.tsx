@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight, Calculator } from "lucide-react";
+import { ArrowLeft, Calculator } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { screenHref } from "@/lib/study/basics";
@@ -155,12 +155,7 @@ export default function Ias16Page() {
     <div className="relative">
       <div className="bg-grid pointer-events-none absolute inset-x-0 top-0 h-80 [mask-image:linear-gradient(to_bottom,black,transparent)]" />
       <Container className="relative pt-10 pb-16 sm:pt-14">
-        <Link href="/basics" className="inline-flex items-center gap-1 text-sm font-medium text-accent hover:underline">
-          <ArrowRight className="h-4 w-4" aria-hidden /> חזרה לחשבונאות מאפס
-        </Link>
-        <div className="mt-4">
-          <Breadcrumbs trail={[{ label: "שלב 1 · יסודות" }, { label: "רכוש קבוע (IAS 16)" }]} />
-        </div>
+        <Breadcrumbs trail={[{ label: "שלב 2 · קורסים מתקדמים" }, { label: "רכוש קבוע (IAS 16)" }]} />
         <h1 className="mt-2 text-3xl font-semibold tracking-tight text-fg sm:text-4xl">
           תקן IAS 16 רכוש קבוע <span className="text-gradient">מהקל לקשה</span>
         </h1>

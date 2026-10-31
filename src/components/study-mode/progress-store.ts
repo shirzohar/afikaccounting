@@ -8,7 +8,9 @@ import { EMPTY_TOPIC, type TopicProgress } from "@/lib/study/score";
  * can be blocked (private mode, previews), so every access is guarded and an
  * in-memory copy keeps the lesson working without it — as in basics/store.ts.
  */
-type State = { sound: boolean; topics: Record<string, TopicProgress> };
+/** The lesson opened last, for "continue where you left off": enough to show and link it without loading the lesson. */
+export type LastLesson = { slug: string; title: string; course: string; n: number; percent: number };
+type State = { sound: boolean; topics: Record<string, TopicProgress>; last?: LastLesson };
 
 const KEY = "afik.study.v2";
 const EVENT = "afik-study-progress";
@@ -35,7 +37,8 @@ const subscribe = (cb: () => void) => {
 const parse = (raw: string): State => {
   try {
     const s = JSON.parse(raw) as Partial<State>;
-    return { sound: s.sound !== false, topics: s.topics && typeof s.topics === "object" ? s.topics : {} };
+    const last = s.last && typeof s.last === "object" && typeof s.last.slug === "string" ? s.last : undefined;
+    return { sound: s.sound !== false, topics: s.topics && typeof s.topics === "object" ? s.topics : {}, last };
   } catch {
     return JSON.parse(EMPTY);
   }
@@ -76,3 +79,13 @@ export function useTopics(slugs: string[]): Record<string, TopicProgress> {
   const topics = useStore().topics;
   return Object.fromEntries(slugs.map((s) => [s, { ...EMPTY_TOPIC, ...topics[s] }]));
 }
+
+/** Remember the lesson just opened, and how far through it the reader is. Written only when it changes. */
+export function setLast(last: LastLesson) {
+  const cur = parse(read()).last;
+  if (cur && cur.slug === last.slug && cur.percent === last.percent && cur.title === last.title) return;
+  write((s) => ({ ...s, last }));
+}
+
+/** The lesson opened last, if any (none on the server and before the first lesson). */
+export const useLast = () => useStore().last;

@@ -1,9 +1,10 @@
-import { ArrowRight, ArrowLeft, CalendarDays, Clock, Paperclip } from "lucide-react";
+import { ArrowLeft, CalendarDays, Clock, Paperclip } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { ArticleTracker } from "@/components/content/article-tracker";
+import { Breadcrumbs } from "@/components/layout/breadcrumbs";
 import { RichParagraph } from "@/components/content/rich-text";
 import { ContentCard, readingMinutes } from "@/components/content/content-card";
 import { CalculatorIcon } from "@/components/engine/calculator-visuals";
@@ -42,9 +43,7 @@ export default async function LessonPage({ params }: PageProps<"/content/[slug]"
 
   return (
     <Container className="pt-8 sm:pt-10">
-      <Link href="/content" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-fg">
-        <ArrowRight className="h-4 w-4" /> מרכז התוכן
-      </Link>
+      <Breadcrumbs root={{ label: "וידאו ומאמרים", href: "/content" }} trail={[{ label: item.standard, href: `/content?standard=${encodeURIComponent(item.standard)}` }, { label: item.title }]} />
 
       <header className="mt-5 max-w-3xl">
         <div className="flex flex-wrap items-center gap-1.5">

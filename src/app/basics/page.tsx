@@ -27,7 +27,7 @@ export default function BasicsPage() {
       <LegacyHashRedirect redirects={REDIRECTS} />
       <div className="bg-grid pointer-events-none absolute inset-x-0 top-0 h-80 [mask-image:linear-gradient(to_bottom,black,transparent)]" />
       <Container className="relative pt-10 pb-16 sm:pt-14">
-        <Breadcrumbs trail={[{ label: "שלב 1 · יסודות" }, { label: "חשבונאות מאפס" }]} />
+        <Breadcrumbs trail={[{ label: "שלב 1 · חינם" }, { label: "חשבונאות מאפס" }]} />
         <h1 className="mt-2 text-3xl font-semibold tracking-tight text-fg sm:text-4xl">
           חשבונאות בסיסית <span className="text-gradient">מאפס</span>
         </h1>

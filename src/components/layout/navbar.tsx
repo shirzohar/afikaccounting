@@ -2,8 +2,10 @@ import { Suspense } from "react";
 import { Skeleton } from "@/components/ui/primitives";
 import { getAccess } from "@/lib/auth/access";
 import { getCurrentUser, getProfile, isAdmin } from "@/lib/auth/dal";
+import { ContinueButton, ContinueView } from "./continue";
 import { Logo } from "./logo";
 import { MobileNav, MobileNavView, NavLinks, NavLinksView } from "./nav-links";
+import { SearchTrigger } from "./search";
 import { ThemeToggle } from "./theme-toggle";
 import { GuestActions, UpgradeButton, UserMenu } from "./user-menu";
 
@@ -16,6 +18,10 @@ export function Navbar() {
           <NavLinks />
         </Suspense>
         <div className="ms-auto flex items-center gap-1.5">
+          <Suspense fallback={<ContinueView />}>
+            <ContinueButton />
+          </Suspense>
+          <SearchTrigger />
           <ThemeToggle />
           <Suspense fallback={<Skeleton className="h-9 w-24" />}>
             <AuthArea />

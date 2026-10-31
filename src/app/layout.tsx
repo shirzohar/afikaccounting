@@ -1,9 +1,11 @@
 import type { Metadata, Viewport } from "next";
 import { Suspense } from "react";
 import { Geist_Mono, Heebo } from "next/font/google";
+import { MobileTabBar, MobileTabBarView } from "@/components/layout/continue";
 import { Footer } from "@/components/layout/footer";
 import { Navbar } from "@/components/layout/navbar";
 import { PageViewTracker } from "@/components/layout/page-view-tracker";
+import { SearchPalette } from "@/components/layout/search";
 import { ThemeProvider } from "@/components/layout/theme-provider";
 import { SITE_URL } from "@/lib/env";
 import { site } from "@/lib/site";
@@ -43,6 +45,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             {children}
           </main>
           <Footer />
+          <Suspense fallback={<MobileTabBarView />}>
+            <MobileTabBar />
+          </Suspense>
+          <SearchPalette />
           <Suspense fallback={null}>
             <PageViewTracker />
           </Suspense>
