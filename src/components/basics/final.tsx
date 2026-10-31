@@ -1,11 +1,14 @@
-import { Layers, Printer } from "lucide-react";
+import { ArrowLeft, Layers, Printer } from "lucide-react";
+import { trialBalance } from "@/lib/learn/basics";
+import { GEFEN, SHAKED, TAMAR } from "@/lib/learn/worksheet";
+import { Given } from "./credit";
 import { Glossary } from "./glossary";
 import type { ScreenContent } from "@/components/study-mode/shell";
-import { ScreenLink } from "@/components/study-mode/screen-link";
 import { PrintButton } from "./print-button";
 import { Tabs } from "./tabs";
-import { KeyCard, Rule } from "./ui";
-import { Worksheet } from "./worksheet";
+import { KeyCard, Rule, TBTable } from "./ui";
+import { WorksheetWalk } from "./worksheet";
+import { WorksheetGame } from "./worksheet-game";
 
 const MISTAKES: [string, string][] = [
   ["רושמים משיכת בעלים כהוצאה", "משיכה מקטינה את ההון (ח׳ הון בעלים), ולא נכנסת לרווח והפסד."],
@@ -27,18 +30,85 @@ const FAQ: [string, string][] = [
   ["למה הוצאות מראש הן נכס?", "כי שילמתם על משהו שעוד תקבלו — חודשי ביטוח או שימוש. זה ערך שיש לעסק."],
 ];
 
+/** The sheet's columns, in order: what each one holds. */
+const COLUMNS: [string, string][] = [
+  ["לפני התאמות", "מאזן הבוחן כפי שמקבלים אותו בשאלה."],
+  ["התאמות", "פקודות ההתאמה, כל חשבון בשורה שלו. חשבון חדש — בשורה חדשה."],
+  ["מאזן בוחן סופי", "לכל חשבון: לפני + התאמות, בצד הנכון."],
+  ["תוצאתי", "הכנסות והוצאות — מהן הרווח."],
+  ["מאזני", "נכסים, התחייבויות והון — עם עודפי הסגירה."],
+];
+
 export const FINAL_SCREENS: Record<string, ScreenContent> = {
   worksheet: {
-    lead: "גיליון רב-טורי מוביל, בטבלה אחת, ממאזן הבוחן לפני ההתאמות ועד הרווח ויתרת העודפים בסוף השנה.",
+    lead: "גיליון רב-טורי מוביל, בטבלה אחת, ממאזן הבוחן לפני ההתאמות ועד רווח השנה ויתרת העודפים בסוף השנה.",
     body: (
       <>
         <KeyCard icon={<Layers className="h-5 w-5" />}>כל מה שלמדנו עד עכשיו נועד להגיע לרגע הזה: מרכזים הכול בגיליון אחד.</KeyCard>
+        <ol className="flex flex-wrap items-stretch gap-2 [column-span:all]">
+          {COLUMNS.map(([title, what], i) => (
+            <li key={title} className="flex min-w-0 flex-[1_1_10rem] items-center gap-2">
+              <div className="h-full flex-1 rounded-xl border border-line bg-surface px-3 py-2.5">
+                <p className="flex items-center gap-1.5 text-[15px] font-bold text-fg">
+                  <span className="num grid h-6 w-6 place-items-center rounded-full bg-accent text-[12px] text-accent-fg">{i + 1}</span>
+                  {title}
+                </p>
+                <p className="mt-1 text-[13.5px] text-muted">{what}</p>
+              </div>
+              {i < COLUMNS.length - 1 && <ArrowLeft className="h-4 w-4 shrink-0 text-subtle max-sm:hidden" aria-hidden />}
+            </li>
+          ))}
+        </ol>
         <p>
-          <strong>העמודה הראשונה היא נקודת הפתיחה:</strong> מאזן הבוחן לפני ההתאמות, כפי שמקבלים אותו בשאלה. כל עמודה אחריה נבנית על הקודמת. הנה הגיליון של רונן, מ<ScreenLink id="ronen">הדוגמה המלאה בשיעור ההתאמות</ScreenLink>:
+          <strong>מה מקבלים בשאלה:</strong> מאזן בוחן לפני התאמות, ורשימת עובדות — מה קרה ומה לא נרשם. <strong>מה מבקשים:</strong> לבנות את הגיליון, ולהגיע לרווח השנה
+          ולעודפי הסגירה.
         </p>
-        <Worksheet />
-        <Rule>עודפי סגירה = עודפי פתיחה + רווח השנה (או פחות הפסד השנה).</Rule>
+        <Rule>מאזן בוחן לפני התאמות + התאמות = מאזן בוחן סופי. ממנו: תוצאתי ← רווח השנה; מאזני ← עם עודפי הסגירה, מאוזן.</Rule>
       </>
+    ),
+  },
+
+  "ws-question": {
+    body: (
+      <Given title={`נתון: ${SHAKED.name} — מאזן בוחן ליום ${SHAKED.date}, לפני פקודות התאמה`} asks={<>גיליון רב-טורי ליום {SHAKED.date}, רווח השנה ועודפי הסגירה.</>}>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <TBTable tb={trialBalance(SHAKED.preliminary)} caption="מאזן בוחן לפני התאמות" />
+          <div>
+            <p className="mb-1.5 font-bold">מידע נוסף לסוף השנה:</p>
+            <ol className="space-y-1.5">
+              {SHAKED.items.map((it) => (
+                <li key={it.entry.id} className="flex gap-2 rounded-lg bg-surface px-3 py-2 text-[14.5px]">
+                  <span className="font-bold text-amber-700 dark:text-amber-400">{it.entry.id}.</span>
+                  <span>{it.story}</span>
+                </li>
+              ))}
+            </ol>
+          </div>
+        </div>
+      </Given>
+    ),
+  },
+
+  "ws-solve": {
+    lead: `פותרים את השאלה של ${SHAKED.name}: קודם מעתיקים את מאזן הבוחן, אחר כך פקודת התאמה אחת בכל צעד — ובסוף מפצלים ומגיעים לרווח.`,
+    body: <WorksheetWalk c={SHAKED} />,
+  },
+
+  "ws-game": {
+    lead: `עכשיו תורכם, עם חברה חדשה — ${TAMAR.name}. ממיינים את המאזן הראשוני (אפשר נגד השעון), רושמים ומשבצים כל פקודת התאמה, ומגיעים לרווח השנה.`,
+    body: (
+      <div className="[column-span:all]">
+        <WorksheetGame c={TAMAR} />
+      </div>
+    ),
+  },
+
+  "ws-game-hard": {
+    lead: `אותו משחק, ברמה של בחינה — ${GEFEN.name}: יתרה אחת במאזן לא נתונה, פקודה מורכבת, פקודת תיקון, ונתונים שצריך לחשב לפני שרושמים. ובסוף — גם רווח השנה וגם עודפי הסגירה.`,
+    body: (
+      <div className="[column-span:all]">
+        <WorksheetGame c={GEFEN} />
+      </div>
     ),
   },
 };

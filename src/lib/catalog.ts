@@ -8,6 +8,8 @@
  */
 
 export type CatalogLink = { href: string; label: string; description?: string };
+/** A topic's tool; `calculator` lists a tool inside a lesson among the calculators too (other tools of the page always are). */
+export type ToolLink = CatalogLink & { calculator?: boolean };
 
 export type Topic = {
   id: string;
@@ -20,7 +22,7 @@ export type Topic = {
   covers: string[];
   /** Sub-pages, when the topic spans several. */
   pages?: CatalogLink[];
-  tools: CatalogLink[];
+  tools: ToolLink[];
   /** The topic's interactive lesson, when it is a single lesson (/study/[slug]); a course of lessons is its own page. */
   lesson?: string;
 };
@@ -47,7 +49,7 @@ export const LEARNING_PATH: Stage[] = [
         covers: ["חובה וזכות", "פקודות יומן", "כרטיסי T", "מאזן בוחן", "דוחות כספיים", "התאמות סוף שנה", "הפסדי אשראי"],
         tools: [
           { href: "/study/basics-double-entry?screen=lab", label: "עסק שלם, פקודה אחר פקודה" },
-          { href: "/study/basics-credit?screen=cl-exam", label: "מחשבון הפסדי אשראי" },
+          { href: "/study/basics-credit?screen=cl-calc", label: "מחשבון הפסדי אשראי" },
           { href: "/study/basics-final?step=2", label: "תרגול מסכם" },
         ],
       },
@@ -56,9 +58,9 @@ export const LEARNING_PATH: Stage[] = [
         title: "מלאי",
         standard: "IAS 2",
         href: "/basics/inventory",
-        description: "רישום תקופתי ותמידי, FIFO וממוצעים, שווי מימוש נטו, חילוץ נעלמים ושריפה.",
-        covers: ["תקופתי ותמידי", "FIFO", "ממוצע משוקלל", "שווי מימוש נטו", "חילוץ נעלמים", "שריפה וביטוח"],
-        tools: [{ href: "/basics/inventory#inv-calc", label: "מחשבון מלאי" }],
+        description: "6 שיעורים אינטראקטיביים, מ״מה שלא נמכר אינו הוצאה״ דרך עלות לפי התקן, FIFO וממוצעים ושווי מימוש נטו ועד חילוץ נעלמים ושאלה מלאה — עם תרגול בכל שיעור ומחשבון.",
+        covers: ["תקופתי ותמידי", "עלות לפי IAS 2", "FIFO", "ממוצע משוקלל", "שווי מימוש נטו", "חילוץ נעלמים", "שריפה וביטוח"],
+        tools: [{ href: "/study/inventory-exam?screen=inv-calc", label: "מחשבון מלאי", calculator: true }],
       },
       {
         id: "ias16",
@@ -97,7 +99,9 @@ export const ENGINE_TOOLS: (CatalogLink & { slug: string; standard: string })[] 
 
 /** Every calculator inside a learning page, in learning-path order. */
 export const LEARNING_TOOLS: (CatalogLink & { topic: string })[] = LEARNING_PATH.flatMap((s) =>
-  s.topics.flatMap((t) => t.tools.filter((x) => !x.href.startsWith("/study/")).map((x) => ({ ...x, topic: t.standard ? `${t.standard} · ${t.title}` : t.title }))),
+  s.topics.flatMap((t) =>
+    t.tools.filter((x) => x.calculator || !x.href.startsWith("/study/")).map(({ href, label, description }) => ({ href, label, description, topic: t.standard ? `${t.standard} · ${t.title}` : t.title })),
+  ),
 );
 
 export const LEARN_HUB = { href: "/learn", label: "מפת הלימוד" };

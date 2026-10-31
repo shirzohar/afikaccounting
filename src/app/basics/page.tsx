@@ -4,7 +4,10 @@ import { BasicsReference } from "@/components/basics/final";
 import { Breadcrumbs } from "@/components/layout/breadcrumbs";
 import { CoursePath, LegacyHashRedirect } from "@/components/study-mode/course";
 import { Container } from "@/components/ui/primitives";
-import { BASICS_LESSONS } from "@/lib/study/basics";
+import { BASICS_LESSONS, LEGACY_CHAPTERS, legacyHref } from "@/lib/study/basics";
+
+// The former long page's chapter anchors, and where each lands now.
+const REDIRECTS = Object.fromEntries(LEGACY_CHAPTERS.map((id) => [id, legacyHref(id) ?? ""]));
 
 export const metadata: Metadata = {
   title: "חשבונאות בסיסית מאפס",
@@ -20,7 +23,7 @@ export const metadata: Metadata = {
 export default function BasicsPage() {
   return (
     <div className="relative">
-      <LegacyHashRedirect />
+      <LegacyHashRedirect redirects={REDIRECTS} />
       <div className="bg-grid pointer-events-none absolute inset-x-0 top-0 h-80 [mask-image:linear-gradient(to_bottom,black,transparent)]" />
       <Container className="relative pt-10 pb-16 sm:pt-14">
         <Breadcrumbs trail={[{ label: "שלב 1 · יסודות" }, { label: "חשבונאות מאפס" }]} />
@@ -33,7 +36,7 @@ export default function BasicsPage() {
         </p>
 
         <div className="mt-6">
-          <CoursePath />
+          <CoursePath lessons={BASICS_LESSONS} />
         </div>
 
         <section id="reference" aria-labelledby="reference-title" className="mt-14 scroll-mt-24">

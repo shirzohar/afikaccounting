@@ -5,6 +5,10 @@ import { isBalanced, typeOf, type AccountType } from "@/lib/learn/basics";
 import { BASICS_LESSONS, findScreen, LEGACY_CHAPTERS, legacyHref, screenHref } from "./basics";
 import { TRANSLATIONS, twinProfit } from "./basics/intro";
 import { STUDY_MODULES } from "./index";
+import { INVENTORY_LEGACY_CHAPTERS, INVENTORY_LESSONS, inventoryLegacyHref } from "./inventory";
+import { ET } from "./inventory/formulas";
+import { grossProfitMethod, purchaseCost, valuateChain, valuatePeriod } from "@/lib/learn/inventory";
+import { discountPctFromAmount, lastSaleQty, purchasesFromSoldPct, salesFromGp } from "@/lib/learn/inventory-solver";
 import {
   checkEntry,
   clampPlace,
@@ -123,7 +127,6 @@ describe("interactive lessons: the accounting in the new questions", () => {
     assert.equal(answerOf(ex("basics-books", "retained-close")), 55_000);
     assert.equal(answerOf(ex("basics-books", "profit-to-retained")), 40_000);
     // Ronen after the adjustments: income 144,000 + 110,000 + 24,000; expenses 27,000 + 48,000 + 30,000.
-    assert.equal(answerOf(ex("basics-final", "ronen-profit")), 113_000);
   });
 
   it("the translator keeps the books in balance, and only income and expenses move the profit", () => {
@@ -144,8 +147,6 @@ describe("interactive lessons: the accounting in the new questions", () => {
       assert.equal(x.kind, "journal", id);
       return x.kind === "journal" ? x.entry.lines : [];
     };
-    assert.deepEqual(lines("basics-final", "fees-unearned"), [{ account: "הכנסות משירותים", dr: 6_000 }, { account: "הכנסות משירותים מראש", cr: 6_000 }]);
-    assert.equal(typeOf("הכנסות משירותים מראש"), "liability");
     // Prepaid recorded as an asset: only the used months move to expense.
     assert.deepEqual(lines("basics-adjust", "prepaid-used"), [{ account: "הוצאות שכירות", dr: 2_000 }, { account: "הוצאות שכירות מראש", cr: 2_000 }]);
     // Recorded as an expense: next year's part moves out of it.
@@ -192,6 +193,16 @@ describe("interactive lessons: the accounting in the new questions", () => {
     assert.equal(answerOf(ex("basics-credit", "gross-from-net")), 500_000);
     assert.equal(answerOf(ex("basics-credit", "collections")), 944_000);
     assert.equal(answerOf(ex("basics-credit", "opening-allowance")), 43_000);
+  });
+
+  it("lesson 6's practice is multiple choice only — the worksheet itself is practised in its games", () => {
+    const m = STUDY_MODULES["basics-final"];
+    assert.ok(m.exercises.every((x) => x.kind === "choice"), m.exercises.map((x) => `${x.id}:${x.kind}`).join());
+  });
+
+  it("a lesson's tools open screens it has: the credit-loss calculator straight from the course page", () => {
+    for (const m of modules) for (const t of m.tools ?? []) assert.ok(m.screens.some((s) => s.id === t.screen), `${m.slug}: no screen ${t.screen}`);
+    assert.deepEqual(STUDY_MODULES["basics-credit"].tools?.map((t) => t.screen), ["cl-calc"]);
   });
 });
 
@@ -422,5 +433,116 @@ describe("interactive lessons: amounts sorted by hand", () => {
         }
       }
     assert.ok(seen >= 2, "both boards are in the course");
+  });
+});
+
+describe("the inventory course", () => {
+  const answer = (slug: string, id: string) => {
+    const x = STUDY_MODULES[slug].exercises.find((e) => e.id === id);
+    assert.ok(x && x.kind === "number", `${slug}: no calculation ${id}`);
+    return x.answer;
+  };
+  const near = (a: number, b: number, where: string) => assert.ok(Math.abs(a - b) < 1e-6, `${where}: ${a} ≠ ${b}`);
+
+  it("six lessons, numbered in order, all on the inventory page", () => {
+    assert.equal(INVENTORY_LESSONS.length, 6);
+    INVENTORY_LESSONS.forEach((m, i) => {
+      assert.equal(m.n, i + 1, m.slug);
+      assert.equal(m.backHref, "/basics/inventory", m.slug);
+      assert.equal(STUDY_MODULES[m.slug], m);
+    });
+  });
+
+  it("every chapter of the former page lands on a screen; the tools chapter on the calculator", () => {
+    for (const id of INVENTORY_LEGACY_CHAPTERS) assert.ok(inventoryLegacyHref(id), `chapter ${id} has nowhere to go`);
+    assert.equal(inventoryLegacyHref("inv-tools"), "/study/inventory-exam?screen=inv-calc");
+    assert.equal(inventoryLegacyHref("inv-calc"), "/study/inventory-exam?screen=inv-calc");
+    assert.equal(inventoryLegacyHref("inv-fifo"), "/study/inventory-formulas?screen=inv-fifo");
+    assert.deepEqual(STUDY_MODULES["inventory-exam"].tools, [{ screen: "inv-calc", label: "מחשבון מלאי" }]);
+  });
+
+  it("lesson 2's costs agree with the engine", () => {
+    const imported = purchaseCost({
+      qty: 500,
+      unitPrice: 40,
+      discounts: [{ kind: "qty-whole", threshold: 0, pct: 0.05 }],
+      extras: [
+        { category: "duty", label: "מכס", amount: 0.1, basis: "pct-of-net-price" },
+        { category: "freight", label: "הובלה", amount: 1_000, basis: "per-shipment" },
+        { category: "storage", label: "אחסון", amount: 600, basis: "per-shipment" },
+      ],
+    });
+    near(answer("inventory-cost", "import-cost"), imported.total, "import-cost");
+    const unit = purchaseCost({
+      qty: 1_000,
+      unitPrice: 12,
+      extras: [
+        { category: "freight", label: "הובלה", amount: 0.5, basis: "per-unit" },
+        { category: "vat", label: "מע״מ", amount: 0.18, basis: "pct-of-net-price" },
+        { category: "selling", label: "הובלה ללקוחות", amount: 800, basis: "per-shipment" },
+      ],
+    });
+    near(answer("inventory-cost", "unit-cost"), unit.total / 1_000, "unit-cost");
+    near(answer("inventory-cost", "excess-discount"), purchaseCost({ qty: 1_200, unitPrice: 20, discounts: [{ kind: "qty-excess", threshold: 1_000, pct: 0.1 }] }).total, "excess-discount");
+    near(answer("inventory-cost", "financing-cost"), purchaseCost({ qty: 200, unitPrice: 100, financingPct: 0.05 }).total, "financing-cost");
+  });
+
+  it("lesson 3's pen shop comes out the same in the engine, by every method", () => {
+    const year = {
+      label: "2025",
+      purchases: [
+        { date: "2025-02-01", qty: ET.buy1.qty, unitPrice: ET.buy1.price },
+        { date: "2025-06-01", qty: ET.buy2.qty, unitPrice: ET.buy2.price },
+      ],
+      sales: [
+        { date: "2025-04-01", qty: ET.sell1.qty },
+        { date: "2025-09-01", qty: ET.sell2.qty },
+      ],
+    };
+    const fifo = valuatePeriod(year, "fifo");
+    const wa = valuatePeriod(year, "wa-periodic");
+    const ma = valuatePeriod(year, "moving-avg");
+    near(answer("inventory-formulas", "fifo-closing"), fifo.closingCarrying, "fifo-closing");
+    near(answer("inventory-formulas", "wa-avg"), wa.avgCost!, "wa-avg");
+    near(answer("inventory-formulas", "wa-cogs"), wa.cogs, "wa-cogs");
+    near(answer("inventory-formulas", "ma-sale-cost"), ma.cogs - ET.sell1.qty * ET.buy1.price, "ma-sale-cost");
+    for (const r of [fifo, wa, ma]) assert.deepEqual(r.warnings, []);
+  });
+
+  it("lesson 4's write-down and its reversal agree with the engine", () => {
+    const down = valuatePeriod({ label: "2025", opening: { units: 400, cost: 10_000 }, purchases: [], sales: [], nrvPerUnit: 21 }, "fifo");
+    near(answer("inventory-nrv", "writedown"), down.writeDown, "writedown");
+    const [, after] = valuateChain(
+      [
+        { label: "2025", opening: { units: 300, cost: 15_000 }, purchases: [], sales: [], nrvPerUnit: 40 },
+        { label: "2026", purchases: [], sales: [], nrvPerUnit: 58 },
+      ],
+      "fifo",
+      { carryWriteDown: true },
+    );
+    near(answer("inventory-nrv", "reversal"), after.reversal, "reversal");
+  });
+
+  it("lesson 5's unknowns agree with the solver", () => {
+    near(answer("inventory-unknowns", "sales-from-gp"), salesFromGp(84_000, 0.3), "sales-from-gp");
+    near(answer("inventory-unknowns", "last-sale"), lastSaleQty(3_000, 350, 1_900), "last-sale");
+    near(answer("inventory-unknowns", "retail-closing"), grossProfitMethod({ netSales: 150_000, rate: 0.4, opening: 30_000, purchases: 90_000 }).closing, "retail-closing");
+    near(answer("inventory-unknowns", "purchases-from-pct"), purchasesFromSoldPct(180_000, 0.6), "purchases-from-pct");
+    near(answer("inventory-unknowns", "discount-rate"), discountPctFromAmount(2_400, 400, 75) * 100, "discount-rate");
+    const avg = valuatePeriod({ label: "2025", opening: { units: 200, cost: 2_000 }, purchases: [{ qty: 200, unitPrice: answer("inventory-unknowns", "price-from-avg") }], sales: [] }, "wa-periodic");
+    near(avg.avgCost!, 12, "price-from-avg");
+  });
+});
+
+describe("the inventory course: the staged solutions agree with the engine", () => {
+  it("FIFO sale by sale, and the moving-average stock card, come to the engine's closing stock and cost of sales", async () => {
+    const s = await import("@/components/basics/inventory-stages");
+    const near = (a: number, b: number, where: string) => assert.ok(Math.abs(a - b) < 0.005, `${where}: ${a} ≠ ${b}`);
+    near(s.FIFO_PERPETUAL_CLOSING, s.FIFO_T.closingCostBasis, "FIFO perpetual closing");
+    near(s.FIFO_PERPETUAL_COGS, s.FIFO_T.cogs, "FIFO perpetual cost of sales");
+    near(s.FIFO_PERPETUAL_CLOSING, s.FIFO.closingCostBasis, "FIFO is the same in both systems");
+    near(s.MA_CLOSING, s.MA.closingCostBasis, "moving average closing");
+    near(s.MA_COGS, s.MA.cogs, "moving average cost of sales");
+    for (const steps of [s.FIFO_PERIODIC_STEPS, s.FIFO_PERPETUAL_STEPS, s.WA_STEPS, s.MA_STEPS]) assert.ok(steps.length >= 6);
   });
 });

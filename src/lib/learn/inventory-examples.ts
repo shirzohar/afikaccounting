@@ -54,6 +54,22 @@ export const NEYAR: Period = {
   sales: [S("2025-02-15", 250, 30), S("2025-05-20", 400, 32), S("2025-08-15", 300, 35), S("2025-11-20", 100, 38)],
 };
 
+/**
+ * The cost-formula lesson's year: a stationery shop whose dates show that events need not alternate — two
+ * purchases in a row (5.1, 2.2) and two sales in a row (15.3, 20.4). Prices chosen so that every method comes
+ * out in round figures (periodic average 13.2; moving averages 10.8, 14.16, 15.44).
+ */
+export const MAHBERET: Period = {
+  label: "2025",
+  purchases: [
+    B("2025-01-05", 300, 10, { label: "קנייה 5.1" }),
+    B("2025-02-02", 200, 12, { label: "קנייה 2.2" }),
+    B("2025-06-10", 400, 15, { label: "קנייה 10.6" }),
+    B("2025-10-05", 100, 18, { label: "קנייה 5.10" }),
+  ],
+  sales: [S("2025-03-15", 350, 25), S("2025-04-20", 50, 26), S("2025-08-01", 300, 28), S("2025-11-20", 150, 30)],
+};
+
 /** Chapter 8: a periodic average with opening inventory. */
 export const WA_OPEN: Period = {
   label: "2025",

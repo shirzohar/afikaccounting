@@ -89,6 +89,13 @@ export function StudyShell({ module: m, screens, next }: { module: StudyModule; 
     setMoved(true);
     setOpening(false);
   };
+  const openTool = (screen: string) => {
+    const sub = m.screens.findIndex((s) => s.id === screen);
+    if (sub < 0) return;
+    enter();
+    updateTopic(slug, (q) => ({ ...q, step: 0, sub }));
+    window.history.replaceState(window.history.state, "", `${pathname}?screen=${screen}`);
+  };
   const heading = useRef<HTMLHeadingElement>(null);
   const body = useRef<HTMLDivElement>(null);
   const first = useRef(true);
@@ -200,6 +207,7 @@ export function StudyShell({ module: m, screens, next }: { module: StudyModule; 
           module={m}
           progress={p}
           onStart={enter}
+          onTool={openTool}
           onRestart={() => {
             restart();
             setOpening(false);

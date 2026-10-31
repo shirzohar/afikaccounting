@@ -3,9 +3,11 @@ import type { ReactNode } from "react";
 import type { ScreenContent } from "@/components/study-mode/shell";
 import { DataTable } from "@/components/study/blocks";
 import { type Balances, balancesOf, type Entry, ledger, round2, type TAccount } from "@/lib/learn/basics";
-import { adjustment, ALLOW, ALON, ALON_LOW, AR, DOR, ERAN, GILBOA, RONIT, recovery, SCENARIO_A, SCENARIO_B, SCENARIO_C, writeOff, year } from "@/lib/learn/credit-losses";
+import { adjustment, ALLOW, ALON, ALON_LOW, AR, DOR, ERAN, EXPENSE, GILBOA, RONIT, SCENARIO_A, SCENARIO_B, SCENARIO_C, writeOff, year } from "@/lib/learn/credit-losses";
 import { cn } from "@/lib/utils";
+import { ClosingArrow } from "./closing-arrow";
 import { CreditLossCalculator } from "./credit-calculator";
+import { EntriesDialog } from "./entries-dialog";
 import { FormulaDialog } from "./formula-dialog";
 import { TCardsDialog } from "./t-dialog";
 import { Posted } from "./t-accounts";
@@ -19,7 +21,8 @@ const k = (account: string, ref: string) => `${account}|${ref}`;
 // ---------------------------------------------------------------------------
 // The two T-accounts every question is solved in.
 
-type Row = { key: string; label: string; ref?: string; amount: number; close?: boolean };
+/** `entry`: the allowance's year-end posting against the expense — the unknown the journal entry is made for. */
+type Row = { key: string; label: string; ref?: string; amount: number; close?: boolean; entry?: boolean };
 
 /** What a posting is, read from the account on the other side of its entry. */
 function labelOf(account: string, side: "dr" | "cr", entry?: Entry) {
@@ -50,8 +53,9 @@ function rowsOf(t: TAccount, entries: Entry[]) {
   const cr: Row[] = [];
   const open: Row = { key: k(t.account, "פתיחה"), label: "יתרת פתיחה", amount: sign * t.opening };
   (natural === "dr" ? dr : cr).push(open);
-  for (const p of t.dr) dr.push({ key: k(t.account, p.ref), label: labelOf(t.account, "dr", byId.get(p.ref)), ref: p.ref, amount: p.amount });
-  for (const p of t.cr) cr.push({ key: k(t.account, p.ref), label: labelOf(t.account, "cr", byId.get(p.ref)), ref: p.ref, amount: p.amount });
+  const entry = (ref: string) => t.account === ALLOW && !!byId.get(ref)?.lines.some((l) => l.account === EXPENSE);
+  for (const p of t.dr) dr.push({ key: k(t.account, p.ref), label: labelOf(t.account, "dr", byId.get(p.ref)), ref: p.ref, amount: p.amount, entry: entry(p.ref) });
+  for (const p of t.cr) cr.push({ key: k(t.account, p.ref), label: labelOf(t.account, "cr", byId.get(p.ref)), ref: p.ref, amount: p.amount, entry: entry(p.ref) });
   const closing: Row = { key: k(t.account, "סגירה"), label: "יתרת סגירה", amount: sign * t.balance, close: true };
   return { dr, cr, closing, closingSide: natural };
 }
@@ -64,6 +68,8 @@ function LetterT({ t, entries, letters, mode }: { t: TAccount; entries: Entry[];
     return (
       <li
         key={r.key}
+        // The allowance's closing balance is where the formula's answer goes.
+        data-link-to={r.close && t.account === ALLOW ? "closing" : undefined}
         className={cn(
           "flex items-center justify-between gap-2 rounded px-1.5 py-1 text-[12.5px]",
           r.close && "font-bold",
@@ -73,6 +79,9 @@ function LetterT({ t, entries, letters, mode }: { t: TAccount; entries: Entry[];
         <span className="min-w-0 text-fg">
           {r.label}
           {r.ref && <span className="ms-1 text-[10px] text-subtle">({r.ref})</span>}
+          {r.entry && letter && (
+            <span className="ms-1.5 inline-block rounded bg-amber-400 px-1.5 py-px text-[10.5px] font-bold text-amber-950">עליו פקודת היומן</span>
+          )}
         </span>
         {letter && mode === "question" ? (
           <span className="shrink-0 font-bold text-amber-600 dark:text-amber-400">{letter}</span>
@@ -114,16 +123,47 @@ function LetterT({ t, entries, letters, mode }: { t: TAccount; entries: Entry[];
 }
 
 /** Customers and the allowance, side by side. Unknowns get letters: X, Y, Z… — amber while open, green once solved. */
-function TwoT({ accounts, entries, unknown = [], mode = "solved" }: { accounts: TAccount[]; entries: Entry[]; unknown?: string[]; mode?: "question" | "solved" }) {
+function TwoT({
+  accounts,
+  entries,
+  unknown = [],
+  mode = "solved",
+  closing,
+  beside,
+}: {
+  accounts: TAccount[];
+  entries: Entry[];
+  unknown?: string[];
+  mode?: "question" | "solved";
+  /** The formula's answer — the allowance's closing balance — shown under its card, with an arrow to where it goes. */
+  closing?: ReactNode;
+  /** Under the customers' card, beside the answer: the balance sheet's customers, say. */
+  beside?: ReactNode;
+}) {
   const letters = new Map(unknown.map((key, i) => [key, LETTERS[i]]));
   const pair = [AR, ALLOW].map((a) => accounts.find((t) => t.account === a)).filter((t): t is TAccount => !!t);
+  const cards = (
+    <div className="grid gap-3 md:grid-cols-2">
+      {pair.map((t) => (
+        <LetterT key={t.account} t={t} entries={entries} letters={letters} mode={mode} />
+      ))}
+    </div>
+  );
   return (
     <div>
-      <div className="grid gap-3 md:grid-cols-2">
-        {pair.map((t) => (
-          <LetterT key={t.account} t={t} entries={entries} letters={letters} mode={mode} />
-        ))}
-      </div>
+      {closing ? (
+        <ClosingArrow>
+          {cards}
+          <div className="mt-9 grid gap-3 md:grid-cols-2">
+            {beside ?? <div className="max-md:hidden" />}
+            <div data-link-from="closing" className="rounded-xl border-2 border-accent/50 bg-accent-soft/50 px-3.5 py-2.5 text-[14.5px] text-fg">
+              {closing}
+            </div>
+          </div>
+        </ClosingArrow>
+      ) : (
+        cards
+      )}
       {unknown.length > 0 && (
         <p className="mt-1.5 text-xs text-muted">
           {mode === "question" ? (
@@ -139,6 +179,16 @@ function TwoT({ accounts, entries, unknown = [], mode = "solved" }: { accounts: 
         </p>
       )}
     </div>
+  );
+}
+
+/** The formula's answer under the cards: it is the closing balance; the expense is what is left, and the entry is made for it. */
+function closingNote(allowance: number) {
+  return (
+    <>
+      <strong className="text-accent">התשובה של הנוסחה — י.ס הפרשה להפסדי אשראי: </strong>
+      <Money v={allowance} />. היא נכנסת לכרטיס כיתרת הסגירה, מתחת לקו. הנעלם שנשאר בכרטיס — הוצאות הפסדי האשראי — הוא שעליו עושים את פקודת היומן.
+    </>
   );
 }
 
@@ -199,7 +249,7 @@ function FormulaButton() {
 }
 
 /** What an example gives and what it asks — the amber box the course opens a full example with. */
-function Given({ title, children, asks }: { title: ReactNode; children: ReactNode; asks?: ReactNode }) {
+export function Given({ title, children, asks }: { title: ReactNode; children: ReactNode; asks?: ReactNode }) {
   return (
     <div className="space-y-2 rounded-2xl border-2 border-amber-500/50 bg-amber-500/[0.08] px-4 py-3.5 [column-span:all]">
       <p className="flex items-center gap-2 text-[16px] font-bold text-fg">
@@ -218,7 +268,7 @@ function Given({ title, children, asks }: { title: ReactNode; children: ReactNod
 
 type Year = { result: { accounts: TAccount[]; gross: number; allowance: number }; entries: Entry[]; adj: Entry };
 
-/** A year solved by the method: the cards with the unknowns, the cards solved, then the adjustment and the balance sheet. */
+/** A year solved by the method: the cards with the unknowns, then the cards solved — the answer, the balance sheet, and the entries a click away. */
 function walk(name: string, x: Year, unknown: string[], { given, solve, all }: { given?: ReactNode; solve: ReactNode; all?: boolean }): Step[] {
   return [
     {
@@ -237,16 +287,20 @@ function walk(name: string, x: Year, unknown: string[], { given, solve, all }: {
         <>
           <Rules n={[3]} />
           {solve}
-          <TwoT accounts={x.result.accounts} entries={x.entries} unknown={unknown} />
-        </>
-      ),
-    },
-    {
-      title: `${name} · ${all ? "פקודות היומן" : "פקודת ההתאמה"}, והמאזן`,
-      body: (
-        <>
-          {all ? <Entries entries={x.entries} /> : <JE entry={x.adj} title={`${x.adj.id}. ${x.adj.text} · 31.12`} note={null} />}
-          <NetView gross={x.result.gross} allowance={x.result.allowance} caption="המאזן בסוף השנה — סעיף הלקוחות" />
+          <TwoT
+            accounts={x.result.accounts}
+            entries={x.entries}
+            unknown={unknown}
+            closing={
+              <>
+                {closingNote(x.result.allowance)}
+                <div className="mt-2.5">
+                  <EntriesDialog>{all ? <Entries entries={x.entries} /> : <JE entry={x.adj} title={`${x.adj.id}. ${x.adj.text} · 31.12`} note={null} />}</EntriesDialog>
+                </div>
+              </>
+            }
+            beside={<NetView gross={x.result.gross} allowance={x.result.allowance} caption="המאזן בסוף השנה — סעיף הלקוחות" />}
+          />
         </>
       ),
     },
@@ -257,6 +311,18 @@ function walk(name: string, x: Year, unknown: string[], { given, solve, all }: {
 // The idea: Ronit's shop. Her first year — 100 customers on credit, 5 expected not to pay.
 
 const RONIT_TOTAL = RONIT.customers * RONIT.each;
+/** A few lines of Ronit's credit notebook, and the rest of her customers in one line — adding up to what she is owed. */
+const PINKAS_SHOWN: [string, number][] = [
+  ["משפחת כהן", 1_200],
+  ["מיכל", 850],
+  ["יוסי מהבניין ממול", 2_400],
+  ["רותם", 650],
+  ["אבי והילדים", 1_900],
+];
+const PINKAS: [string, number][] = [
+  ...PINKAS_SHOWN,
+  [`ועוד ${RONIT.customers - PINKAS_SHOWN.length} לקוחות`, RONIT_TOTAL - PINKAS_SHOWN.reduce((t, [, v]) => t + v, 0)],
+];
 const RONIT_LOSS = RONIT.unpaid * RONIT.each;
 const RONIT_YEAR = year({ openingAR: 0, openingAllowance: 0, creditSales: RONIT_TOTAL, required: (g) => g * (RONIT.unpaid / RONIT.customers) });
 
@@ -273,38 +339,80 @@ const termsGeneral = round2((TERMS_EG.gross - TERMS_EG.specific) * TERMS_EG.gene
 const termsRequired = termsSpecific + termsGeneral;
 
 // The terms that come with a customer who will not pay — every one of them a part of the closing formula. Round illustrative figures.
-const MORE_TERMS: { name: string; what: ReactNode; eg: ReactNode }[] = [
+/** One colour per figure of the closing formula — the same in the term cards, in the formula and in its examples, so each number can be traced. */
+const TONES = {
+  gross: "bg-sky-500/15 text-sky-700 ring-sky-500/40 dark:text-sky-300",
+  specific: "bg-amber-500/15 text-amber-700 ring-amber-500/40 dark:text-amber-300",
+  specificRate: "bg-violet-500/15 text-violet-700 ring-violet-500/40 dark:text-violet-300",
+  general: "bg-emerald-500/15 text-emerald-700 ring-emerald-500/40 dark:text-emerald-300",
+};
+type Tone = keyof typeof TONES;
+
+/** A figure of the formula, in its colour. */
+function Hl({ tone, children }: { tone: Tone; children: ReactNode }) {
+  return <span className={cn("rounded-md px-1.5 py-0.5 font-bold ring-1", TONES[tone])}>{children}</span>;
+}
+
+const MORE_TERMS: { name: string; what: ReactNode; eg: ReactNode; aside?: ReactNode }[] = [
   {
     name: "חוב אבוד",
     what: "חוב שכבר ברור שלא ייגבה — למשל לקוח שפשט רגל. כבר לא אומדן: יודעים מי. מוחקים אותו מהלקוחות ומהכרית יחד (ח׳ הפרשה / ז׳ לקוחות), בלי הוצאה.",
-    eg: <>לקוח שחייב 1,000 פשט רגל: הלקוחות ברוטו וההפרשה קטנים שניהם ב-1,000.</>,
+    aside: <>לא בנוסחה — כבר ירד מהלקוחות</>,
+    eg: (
+      <>
+        לקוח שחייב <strong className="text-fg">1,000</strong> פשט רגל: הלקוחות ברוטו וההפרשה קטנים שניהם ב-<strong className="text-fg">1,000</strong>.
+      </>
+    ),
   },
   {
     name: "חוב ספציפי",
     what: "החוב של לקוח מסוים שידוע שהוא בקשיים — אבל עוד לא אבוד. הוא נשאר בלקוחות ברוטו, ורק ההפרשה עליו מחושבת לחוד.",
-    eg: <>לקוח בקשיים חייב <N v={TERMS_EG.specific} />: החוב הספציפי הוא <N v={TERMS_EG.specific} />.</>,
+    eg: (
+      <>
+        לקוח בקשיים חייב{" "}
+        <Hl tone="specific">
+          <N v={TERMS_EG.specific} />
+        </Hl>
+        : זה החוב הספציפי.
+      </>
+    ),
   },
   {
     name: "אחוז ספציפי",
     what: "החלק מהחוב הספציפי שלא צפוי להיגבות. חוב ספציפי × אחוז ספציפי = ההפרשה הספציפית.",
-    eg: <>מעריכים ש-<P r={TERMS_EG.specificRate} /> מהחוב לא ייגבה: <N v={TERMS_EG.specific} /> × <P r={TERMS_EG.specificRate} /> = <N v={termsSpecific} />.</>,
+    eg: (
+      <>
+        מעריכים ש-
+        <Hl tone="specificRate">
+          <P r={TERMS_EG.specificRate} />
+        </Hl>{" "}
+        מהחוב לא ייגבה: זה האחוז הספציפי.
+      </>
+    ),
   },
   {
     name: "אחוז הפרשה כללי",
     what: "האחוז על כל שאר הלקוחות — הלקוחות ברוטו בניכוי החוב הספציפי, כדי שאותו חוב לא ייספר פעמיים.",
     eg: (
       <>
-        לקוחות <N v={TERMS_EG.gross} />, מתוכם <N v={TERMS_EG.specific} /> ספציפי, ו-<P r={TERMS_EG.general} /> כללי: (<N v={TERMS_EG.gross} /> − <N v={TERMS_EG.specific} />) × <P r={TERMS_EG.general} /> ={" "}
-        <N v={termsGeneral} />.
+        י.ס לקוחות ברוטו לאחר התאמה — כבר אחרי מחיקת החוב האבוד:{" "}
+        <Hl tone="gross">
+          <N v={TERMS_EG.gross} />
+        </Hl>
+        . על כולם, חוץ מהחוב הספציפי, מפרישים{" "}
+        <Hl tone="general">
+          <P r={TERMS_EG.general} />
+        </Hl>
+        : זה האחוז הכללי.
       </>
     ),
   },
 ];
 
 // ---------------------------------------------------------------------------
-// Ronit's second year, entry by entry: the year's sales and collections, a debt written off, part of it recovered, and the year end.
+// Ronit's second year, entry by entry: the year's sales and collections, a debt written off, and the year end.
 
-const R2 = { sales: 500_000, collections: 479_000, written: 1_000, recovered: 600, rate: 0.05, lowRate: 0.03 };
+const R2 = { sales: 500_000, collections: 479_000, written: 1_000, rate: 0.05, lowRate: 0.03 };
 const R2_OPEN: Balances = { [AR]: RONIT_TOTAL, [ALLOW]: -RONIT_LOSS };
 const r2Line = (id: string, date: string, text: string, dr: string, cr: string, amount: number): Entry => ({
   id,
@@ -319,13 +427,12 @@ const R2_YEAR: Entry[] = [
   r2Line("1", "2026", "מכירות באשראי במהלך השנה", AR, "מכירות", R2.sales),
   r2Line("2", "2026", "גבייה מלקוחות במהלך השנה", "מזומן", AR, R2.collections),
   writeOff("3", "3.2026", R2.written, "דני, שפשט רגל"),
-  ...recovery("4", "9.2026", R2.recovered),
 ];
 const R2_MID = balancesOf(ledger(R2_YEAR, R2_OPEN));
 const r2Gross = R2_MID[AR];
 const r2Before = -R2_MID[ALLOW];
-const R2_UP = adjustment("5", "31.12.2026", r2Before, round2(r2Gross * R2.rate));
-const R2_DOWN = adjustment("5", "31.12.2026", r2Before, round2(r2Gross * R2.lowRate));
+const R2_UP = adjustment("4", "31.12.2026", r2Before, round2(r2Gross * R2.rate));
+const R2_DOWN = adjustment("4", "31.12.2026", r2Before, round2(r2Gross * R2.lowRate));
 
 /** Customers, the allowance and net, before an entry and after it — and what it did to profit or loss. */
 function Effect({ before, after, pl }: { before: Balances; after: Balances; pl: ReactNode }) {
@@ -364,6 +471,26 @@ function Effect({ before, after, pl }: { before: Balances; after: Balances; pl: 
 }
 
 /**
+ * The closing-balance formula, term by term, laid out left to right as it is worked — the result at the right end, like
+ * every example under it. Each term is its own item, so the Hebrew words cannot pull the order back to right-to-left.
+ */
+const FORMULA: [string, Tone?][] = [
+  ["("],
+  ["י.ס לקוחות ברוטו לאחר התאמה", "gross"],
+  ["−"],
+  ["חוב ספציפי", "specific"],
+  [")"],
+  ["×"],
+  ["אחוז כללי", "general"],
+  ["+"],
+  ["חוב ספציפי", "specific"],
+  ["×"],
+  ["אחוז ספציפי", "specificRate"],
+  ["="],
+  ["י.ס הפרשה להפסדי אשראי"],
+];
+
+/**
  * The formula every credit-loss question comes back to: the allowance's closing balance. It gives a balance, not an entry —
  * the entry is the unknown found once that balance is in the card: missing in credit, the expense grows; too much, it is reversed.
  */
@@ -372,7 +499,13 @@ function ClosingFormula({ example, found }: { example?: ReactNode; found?: React
     <section className="space-y-2.5 rounded-2xl border-2 border-accent bg-accent-soft/40 p-4 [column-span:all]" aria-label="הנוסחה ליתרת הסגירה של ההפרשה">
       <p className="text-[15px] font-bold text-accent">הנוסחה שתלווה אתכם בכל שאלה בהפסדי אשראי</p>
       <p className="rounded-lg bg-surface px-3 py-2.5 text-center text-[16.5px] font-bold leading-relaxed text-fg ring-1 ring-accent/40">
-        י.ס הפרשה להפסדי אשראי = (י.ס לקוחות ברוטו לאחר התאמה − חוב ספציפי) × אחוז כללי + חוב ספציפי × אחוז ספציפי
+        <span dir="ltr" className="inline-flex flex-wrap items-center justify-center gap-x-1.5 gap-y-1">
+          {FORMULA.map(([t, tone], i) => (
+            <span key={i} dir={/[א-ת]/.test(t) ? "rtl" : "ltr"}>
+              {tone ? <Hl tone={tone}>{t}</Hl> : t}
+            </span>
+          ))}
+        </span>
       </p>
       <p className="text-[13px] text-muted">
         <strong className="text-fg">י.ס</strong> — יתרת סגירה · <strong className="text-fg">י.פ</strong> — יתרת פתיחה
@@ -380,9 +513,15 @@ function ClosingFormula({ example, found }: { example?: ReactNode; found?: React
       {example && (
         <p className="flex flex-wrap items-center gap-2 rounded-lg bg-surface px-3 py-2 text-[15px] text-fg">
           <span className="shrink-0 rounded bg-accent px-1.5 py-0.5 text-[11px] font-bold text-accent-fg">בדוגמה</span>
-          <span className="num">{example}</span>
+          <span dir="ltr" className="num">
+            {example}
+          </span>
         </p>
       )}
+      <p className="rounded-lg border border-danger/40 bg-danger/[0.08] px-3 py-2 text-[14px] text-fg">
+        <strong className="text-danger">חוב אבוד לא מופיע בנוסחה.</strong> מחיקת חוב אבוד (ח׳ הפרשה / ז׳ לקוחות) היא פקודה שכבר הורידה אותו מהלקוחות — ולכן{" "}
+        <Hl tone="gross">י.ס לקוחות ברוטו לאחר התאמה</Hl> כבר מתוקנת ולא כוללת אותו. לא מורידים אותו שוב.
+      </p>
       <p className="rounded-lg border-s-4 border-amber-500 bg-amber-500/[0.08] px-3 py-2 text-[14.5px] text-fg">
         <strong>שימו לב: הנוסחה נותנת יתרת סגירה — לא פקודת יומן.</strong> מציבים את היתרה בכרטיס ה-T של ההפרשה, יחד עם כל השאר, ומוצאים את הנעלם. עליו עושים את
         הפקודה, לפי הצד שיצא:
@@ -400,6 +539,21 @@ function ClosingFormula({ example, found }: { example?: ReactNode; found?: React
   );
 }
 
+/** A year end worked with the formula (behind the button): the required closing balance in figures, and what the card is missing. */
+function Worked({ example, found }: { example: ReactNode; found: ReactNode }) {
+  return (
+    <div className="space-y-1.5">
+      <p className="flex flex-wrap items-center gap-2">
+        <span className="text-xs font-bold text-accent">התשובה של הנוסחה — י.ס הפרשה</span>
+        <span dir="ltr" className="num">
+          {example}
+        </span>
+      </p>
+      <p className="text-[14.5px]">{found}</p>
+    </div>
+  );
+}
+
 /** One of Ronit's entries: the story, the entries, what they did, and the cards they moved behind a button. */
 function EventStep({
   story,
@@ -414,7 +568,7 @@ function EventStep({
   entries: Entry[];
   pl: ReactNode;
   note?: ReactNode;
-  /** At year end: the formula's closing balance first, then both cards on the page with the entry as the unknown — the entry follows from them. */
+  /** At year end: both cards on the page, the formula's answer under them with an arrow into the closing balance — and the entry, the unknown left, after them. */
   closing?: ReactNode;
 }) {
   const done = [...R2_YEAR.slice(0, at), ...entries];
@@ -424,8 +578,7 @@ function EventStep({
   return (
     <>
       <p>{story}</p>
-      {closing}
-      {closing && <TwoT accounts={ledger(done, R2_OPEN)} entries={done} unknown={[k(ALLOW, entries[0].id), k(ALLOW, "סגירה")]} />}
+      {closing && <TwoT accounts={ledger(done, R2_OPEN)} entries={done} unknown={[k(ALLOW, entries[0].id), k(ALLOW, "סגירה")]} closing={closing} />}
       <div className={entries.length > 1 ? "grid gap-2 lg:grid-cols-2" : ""}>
         {entries.map((x) => (
           <JE key={x.id} entry={x} note={null} />
@@ -472,22 +625,7 @@ const ronitYear: Step[] = [
     ),
   },
   {
-    title: "3. גביית חוב שנמחק — בשני שלבים",
-    body: (
-      <EventStep
-        story={
-          <>
-            בספטמבר דני מפתיע ומשלם <Money v={R2.recovered} /> מהחוב שנמחק. קודם מחזירים את מה שנגבה לספרים — מבטלים את המחיקה — ורק אז גובים כרגיל.
-          </>
-        }
-        at={3}
-        entries={R2_YEAR.slice(3, 5)}
-        pl={<>לא משתנה עכשיו. אבל הכרית גדלה ב-<Money v={R2.recovered} /> — ולכן ההשלמה בסוף השנה תהיה קטנה יותר באותו סכום.</>}
-      />
-    ),
-  },
-  {
-    title: "4. סוף השנה: השלמת ההפרשה",
+    title: "3. סוף השנה: השלמת ההפרשה",
     body: (
       <EventStep
         story={
@@ -496,7 +634,7 @@ const ronitYear: Step[] = [
             מה שחסר.
           </>
         }
-        at={5}
+        at={3}
         entries={[R2_UP]}
         pl={
           <>
@@ -504,10 +642,10 @@ const ronitYear: Step[] = [
           </>
         }
         closing={
-          <ClosingFormula
+          <Worked
             example={
               <>
-                (<N v={r2Gross} /> − 0) × <P r={R2.rate} /> + 0 = <strong><N v={round2(r2Gross * R2.rate)} /></strong>
+                (<Hl tone="gross"><N v={r2Gross} /></Hl> − <Hl tone="specific"><N v={0} /></Hl>) × <Hl tone="general"><P r={R2.rate} /></Hl> + <Hl tone="specific"><N v={0} /></Hl> × <Hl tone="specificRate"><P r={0} /></Hl> = <strong><N v={round2(r2Gross * R2.rate)} /></strong>
               </>
             }
             found={
@@ -521,7 +659,7 @@ const ronitYear: Step[] = [
     ),
   },
   {
-    title: "5. ואם נדרש פחות? ביטול הפרשה",
+    title: "4. ואם נדרש פחות? ביטול הפרשה",
     body: (
       <EventStep
         story={
@@ -530,13 +668,13 @@ const ronitYear: Step[] = [
             הפוכה.
           </>
         }
-        at={5}
+        at={3}
         entries={[R2_DOWN]}
         closing={
-          <ClosingFormula
+          <Worked
             example={
               <>
-                (<N v={r2Gross} /> − 0) × <P r={R2.lowRate} /> + 0 = <strong><N v={round2(r2Gross * R2.lowRate)} /></strong>
+                (<Hl tone="gross"><N v={r2Gross} /></Hl> − <Hl tone="specific"><N v={0} /></Hl>) × <Hl tone="general"><P r={R2.lowRate} /></Hl> + <Hl tone="specific"><N v={0} /></Hl> × <Hl tone="specificRate"><P r={0} /></Hl> = <strong><N v={round2(r2Gross * R2.lowRate)} /></strong>
               </>
             }
             found={
@@ -718,7 +856,7 @@ const alon: Step[] = [
           אותה שנה, אבל ההנהלה מעריכה רק {pct(ALON.lowRate)}: נדרשת <Money v={ALON_LOW.required} />, ובכרטיס כבר יש <Money v={ALON_LOW.mid.allowance} />. העודף,{" "}
           <Money v={-ALON_LOW.result.expense} />, מבוטל — והפעם הנעלם יושב בצד <strong>החובה</strong> של ההפרשה.
         </p>
-        <TwoT accounts={ALON_LOW.result.accounts} entries={ALON_LOW.entries} unknown={[k(ALLOW, ALON_LOW.ids.adj)]} />
+        <TwoT accounts={ALON_LOW.result.accounts} entries={ALON_LOW.entries} unknown={[k(ALLOW, ALON_LOW.ids.adj)]} closing={closingNote(ALON_LOW.result.allowance)} />
         <JE entry={ALON_LOW.adj} title={`${ALON_LOW.adj.id}. ${ALON_LOW.adj.text} · 31.12`} note={null} />
       </>
     ),
@@ -764,6 +902,7 @@ const scenarios: Step[] = [
           accounts={SCENARIO_A.result.accounts}
           entries={SCENARIO_A.entries}
           unknown={[k(ALLOW, SCENARIO_A.ids.adj), k(AR, "פתיחה"), k(ALLOW, "פתיחה"), k(AR, "סגירה"), k(ALLOW, "סגירה")]}
+          closing={closingNote(SCENARIO_A.result.allowance)}
         />
         <JE entry={SCENARIO_A.adj} title={`${SCENARIO_A.adj.id}. ${SCENARIO_A.adj.text} · 31.12`} note={null} />
       </>
@@ -803,7 +942,7 @@ const scenarios: Step[] = [
             <strong><Money v={SCENARIO_B.result.expense} /></strong> — זו ההוצאה.
           </li>
         </ol>
-        <TwoT accounts={SCENARIO_B.result.accounts} entries={SCENARIO_B.entries} unknown={[k(ALLOW, SCENARIO_B.ids.adj), k(AR, "סגירה"), k(ALLOW, "סגירה")]} />
+        <TwoT accounts={SCENARIO_B.result.accounts} entries={SCENARIO_B.entries} unknown={[k(ALLOW, SCENARIO_B.ids.adj), k(AR, "סגירה"), k(ALLOW, "סגירה")]} closing={closingNote(SCENARIO_B.result.allowance)} />
         <JE entry={SCENARIO_B.adj} title={`${SCENARIO_B.adj.id}. ${SCENARIO_B.adj.text} · 31.12`} note={null} />
       </>
     ),
@@ -843,6 +982,7 @@ const scenarios: Step[] = [
           accounts={SCENARIO_C.result.accounts}
           entries={SCENARIO_C.entries}
           unknown={[k(AR, SCENARIO_C.ids.collections), k(ALLOW, "פתיחה"), k(ALLOW, SCENARIO_C.ids.adj), k(ALLOW, "סגירה")]}
+          closing={closingNote(SCENARIO_C.result.allowance)}
         />
       </>
     ),
@@ -856,16 +996,6 @@ const dor: Step[] = [
         <p>
           לקוחות בסגירה: <Money v={DOR.result.gross} />. &quot;{DOR.specificName}&quot; עדיין חייב — הוא נשאר בכרטיס הלקוחות, ורק ההפרשה עליו מחושבת לחוד:
         </p>
-        <ClosingFormula
-          example={
-            <>
-              (<N v={DOR.result.gross} /> − <N v={DOR.specificDebt} />) × <P r={DOR.generalRate} /> + <N v={DOR.specificDebt} /> × <P r={DOR.specificRate} /> ={" "}
-              <strong>
-                <N v={DOR.required} />
-              </strong>
-            </>
-          }
-        />
         <DataTable
           head={["", "חישוב", "סכום"]}
           rows={[
@@ -890,7 +1020,7 @@ const dor: Step[] = [
           שבכרטיס, ולכן לפני ההתאמה ההפרשה בחובה: <Money v={-DOR.bankrupt.mid.allowance} />. נדרשת רק כללית: {f(DOR.bankrupt.result.gross)} × {pct(DOR.generalRate)} ={" "}
           <Money v={DOR.bankrupt.required} />, וההוצאה <Money v={DOR.bankrupt.result.expense} />.
         </p>
-        <TwoT accounts={DOR.bankrupt.result.accounts} entries={DOR.bankrupt.entries} unknown={[k(ALLOW, DOR.bankrupt.ids.adj), k(ALLOW, "סגירה")]} />
+        <TwoT accounts={DOR.bankrupt.result.accounts} entries={DOR.bankrupt.entries} unknown={[k(ALLOW, DOR.bankrupt.ids.adj), k(ALLOW, "סגירה")]} closing={closingNote(DOR.bankrupt.result.allowance)} />
         <Entries entries={[DOR.bankrupt.entries.find((x) => x.id === DOR.bankrupt.ids.writeOff)!, DOR.bankrupt.adj]} />
       </>
     ),
@@ -951,16 +1081,6 @@ const gilboa: Step[] = [
         <Calc>
           {f(g.openingGross)} + {f(g.creditSales)} + {f(g.recovered)} − {f(g.collections)} − {f(g.bankruptDebt)} − {f(g.recovered)} = <strong><Money v={g.mid.gross} /></strong>
         </Calc>
-        <ClosingFormula
-          example={
-            <>
-              (<N v={g.mid.gross} /> − <N v={g.specificDebt} />) × <P r={g.generalRate} /> + <N v={g.specificDebt} /> × <P r={g.specificRate} /> ={" "}
-              <strong>
-                <N v={g.required} />
-              </strong>
-            </>
-          }
-        />
         <DataTable
           head={["", "חישוב", "סכום"]}
           rows={[
@@ -980,13 +1100,23 @@ const gilboa: Step[] = [
         <Calc>
           {f(g.required)} = {f(g.openingAllowance)} − {f(g.bankruptDebt)} + {f(g.recovered)} + X, ולכן X = <strong><Money v={g.result.expense} /></strong> — הוצאות הפסדי האשראי.
         </Calc>
-        <TwoT accounts={g.result.accounts} entries={g.entries} unknown={G_UNKNOWN} />
+        <TwoT
+          accounts={g.result.accounts}
+          entries={g.entries}
+          unknown={G_UNKNOWN}
+          closing={
+            <>
+              {closingNote(g.result.allowance)}
+              <div className="mt-2.5">
+                <EntriesDialog>
+                  <Entries entries={g.entries} />
+                </EntriesDialog>
+              </div>
+            </>
+          }
+        />
       </>
     ),
-  },
-  {
-    title: "פקודות היומן",
-    body: <Entries entries={g.entries} />,
   },
   {
     title: "הצגה בדוחות",
@@ -1009,15 +1139,6 @@ const gilboa: Step[] = [
       </div>
     ),
   },
-  {
-    title: "בדקו את עצמכם: המחשבון",
-    body: (
-      <>
-        <p>הזינו נתונים של שאלה — המחשבון מחשב את ההפרשה הנדרשת, את ההוצאה או הביטול, ואת פקודת ההתאמה. נסו את המספרים של גלבוע.</p>
-        <CreditLossCalculator />
-      </>
-    ),
-  },
 ];
 
 // ---------------------------------------------------------------------------
@@ -1029,20 +1150,32 @@ export const CREDIT_SCREENS: Record<string, ScreenContent> = {
       <>
         <section className="space-y-3 rounded-2xl border-2 border-accent/30 bg-accent-soft/40 p-4">
           <p className="flex items-center gap-2 text-[16px] font-bold text-fg">
-            <Store className="h-5 w-5 shrink-0 text-accent" aria-hidden /> דמיינו: החנות של רונית
+            <Store className="h-5 w-5 shrink-0 text-accent" aria-hidden /> דמיינו: המכולת של רונית
           </p>
           <p className="text-[15px]">
-            השנה {RONIT.customers} לקוחות קנו אצל רונית ״בהקפה״ — לקחו סחורה ויבואו לשלם אחר כך — כל אחד ב-<Money v={RONIT.each} />. בסך הכול מגיעים לה{" "}
-            <Money v={RONIT_TOTAL} />.
+            רונית מחזיקה מכולת שכונתית, ולקוחות קבועים קונים אצלה ״על החשבון״: לוקחים עכשיו ומשלמים בסוף החודש. כל קנייה כזו היא כותבת בפנקס ההקפה. השנה{" "}
+            {RONIT.customers} לקוחות קנו כך, ובסך הכול מגיעים לה <Money v={RONIT_TOTAL} />.
           </p>
-          <div className="rounded-xl bg-surface p-3">
-            <div className="mx-auto grid max-w-xs grid-cols-10 gap-1" role="img" aria-label={`${RONIT.customers} לקוחות, מתוכם ${RONIT.unpaid} שלא ישלמו`}>
-              {Array.from({ length: RONIT.customers }, (_, i) => (
-                <span key={i} className={cn("aspect-square rounded-sm", i >= RONIT.customers - RONIT.unpaid ? "bg-danger" : "bg-accent/70")} />
-              ))}
-            </div>
-            <p className="mt-2.5 text-center text-[14px] text-muted">
-              מניסיון של שנים: בערך {RONIT.unpaid} מכל {RONIT.customers} לא משלמים בסוף. רונית לא יודעת <strong>מי</strong> — רק <strong>כמה</strong>.
+          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_12rem]">
+            <figure className="overflow-hidden rounded-xl border border-line bg-surface" aria-label="פנקס ההקפה של רונית">
+              <figcaption className="border-b-2 border-fg/70 bg-surface-2/60 px-3 py-2 text-sm font-bold text-fg">פנקס ההקפה</figcaption>
+              <ul className="divide-y divide-dashed divide-line text-[14px]">
+                {PINKAS.map(([name, amount]) => (
+                  <li key={name} className="flex items-center gap-2 px-3 py-1.5">
+                    <span className="min-w-0 flex-1 text-fg">{name}</span>
+                    <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[11.5px] font-semibold text-muted ring-1 ring-line-strong">ישלם?</span>
+                    <Money v={amount} plain className="w-20 text-end" />
+                  </li>
+                ))}
+              </ul>
+              <p className="flex items-center justify-between border-t-2 border-fg/70 px-3 py-2 text-[14px] font-bold text-fg">
+                <span>סך הכול מגיע לרונית</span>
+                <Money v={RONIT_TOTAL} plain />
+              </p>
+            </figure>
+            <p className="self-center rounded-xl border-2 border-amber-500/50 bg-amber-500/[0.1] p-3 text-[14px] leading-relaxed text-fg">
+              <strong>מניסיון של שנים:</strong> בערך {pct(RONIT.unpaid / RONIT.customers)} מהסכום לא נגבה אף פעם — כ-<Money v={RONIT_LOSS} />. אבל ליד אף שם בפנקס לא כתוב{" "}
+              <strong>מי</strong>. רונית יודעת רק <strong>כמה</strong>.
             </p>
           </div>
         </section>
@@ -1105,9 +1238,6 @@ export const CREDIT_SCREENS: Record<string, ScreenContent> = {
           ההפסד שייך לשנה שבה נעשו המכירות, גם אם הלקוח יפשוט רגל רק בשנה הבאה.
         </p>
         <Posted entries={RONIT_YEAR.entries} at={1} title="ההפרשה של רונית · 31.12" note={null} />
-        <p className="flex flex-wrap items-center gap-2 text-[14.5px]">
-          <FormulaButton /> כאן אין עדיין לקוח ספציפי: (<N v={RONIT_TOTAL} /> − 0) × <P r={RONIT.unpaid / RONIT.customers} /> + 0 = <N v={RONIT_LOSS} />.
-        </p>
         <NetView gross={RONIT_YEAR.result.gross} allowance={RONIT_YEAR.result.allowance} caption="המאזן של רונית — סעיף הלקוחות" />
         <p className="text-[14.5px] text-muted">
           הלקוחות נשארים <Money v={RONIT_TOTAL} /> בכרטיס שלהם. במאזן מוצגים ליד ההפרשה, ונכנסים לסך הנכסים בנטו: <Money v={RONIT_TOTAL - RONIT_LOSS} />.
@@ -1122,17 +1252,27 @@ export const CREDIT_SCREENS: Record<string, ScreenContent> = {
       <>
         <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4 [column-span:all]">
           {MORE_TERMS.map((t) => (
-            <li key={t.name} className="flex flex-col gap-1 rounded-xl border border-line bg-surface px-3.5 py-2.5">
-              <strong className="text-[15px] text-fg">{t.name}</strong>
+            <li
+              key={t.name}
+              // Bad debt stands out: it is the one term that does not enter the formula.
+              className={cn("flex flex-col gap-1 rounded-xl border px-3.5 py-2.5", t.aside ? "border-danger/40 bg-danger/[0.08]" : "border-line bg-surface")}
+            >
+              <span className="flex flex-wrap items-center justify-between gap-1.5">
+                <strong className="text-[15px] text-fg">{t.name}</strong>
+                {t.aside && <span className="rounded-full bg-danger/15 px-2 py-0.5 text-[11.5px] font-semibold text-danger ring-1 ring-danger/40">{t.aside}</span>}
+              </span>
               <span className="text-[13.5px] text-fg/85">{t.what}</span>
-              <span className="num mt-auto rounded-md bg-surface-2/70 px-2 py-1 text-[12.5px] text-muted">{t.eg}</span>
+              <span className="num mt-auto rounded-md bg-surface-2/70 px-2 py-1.5 text-[13.5px] leading-loose text-fg/90">
+                <span className="me-1 text-[11px] font-bold text-muted">בדוגמה:</span>
+                {t.eg}
+              </span>
             </li>
           ))}
         </ul>
         <ClosingFormula
           example={
             <>
-              (<N v={TERMS_EG.gross} /> − <N v={TERMS_EG.specific} />) × <P r={TERMS_EG.general} /> + <N v={TERMS_EG.specific} /> × <P r={TERMS_EG.specificRate} /> ={" "}
+              (<Hl tone="gross"><N v={TERMS_EG.gross} /></Hl> − <Hl tone="specific"><N v={TERMS_EG.specific} /></Hl>) × <Hl tone="general"><P r={TERMS_EG.general} /></Hl> + <Hl tone="specific"><N v={TERMS_EG.specific} /></Hl> × <Hl tone="specificRate"><P r={TERMS_EG.specificRate} /></Hl> ={" "}
               <N v={termsGeneral} /> + <N v={termsSpecific} /> = <strong><N v={termsRequired} /></strong>
             </>
           }
@@ -1341,6 +1481,15 @@ export const CREDIT_SCREENS: Record<string, ScreenContent> = {
         </Given>
         <Stepper label="גלבוע · לפי שלושת הכללים" steps={gilboa} tool={<FormulaButton />} />
       </>
+    ),
+  },
+
+  "cl-calc": {
+    lead: "פתרתם שאלה? הזינו את מה שהשאלה נותנת, והשאירו ריק את מה שלא. המחשבון מוצא את הנעלם בשיטה של השיעור, מראה איך — ובודק את התשובה שלכם.",
+    body: (
+      <div className="[column-span:all]">
+        <CreditLossCalculator />
+      </div>
     ),
   },
 };

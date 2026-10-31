@@ -1,25 +1,21 @@
-import { balancesOf, ledger, RONEN, round2, statements } from "@/lib/learn/basics";
 import type { StudyModule } from "../types";
-import { COURSE, COURSE_HREF, fmt } from "./shared";
+import { COURSE, COURSE_HREF } from "./shared";
 
-// Ronen's year after the adjustments: the profit the worksheet arrives at.
-const RONEN_S = statements(balancesOf(ledger(RONEN.adjustments, RONEN.preliminary)));
-const list = (rows: [string, number][]) => rows.map(([a, v]) => `${a} ${fmt(v)}`).join(" + ");
-
-// Service fees received in advance on 1.12 for three months, all recorded as income.
-const FEES = { received: 9_000, months: 3, monthsThisYear: 1 };
-const feesUnearned = round2((FEES.received * (FEES.months - FEES.monthsThisYear)) / FEES.months);
-
-
-/** Lesson 6: the multi-column worksheet, and a mixed review of the whole course. */
+/** Lesson 6: the multi-column worksheet from a whole question, a game that solves one, and a mixed review of the whole course. */
 export const FINAL: StudyModule = {
   slug: "basics-final",
   course: COURSE,
   n: 6,
   title: "גיליון רב-טורי ותרגול מסכם",
-  description: "כל מה שלמדנו בטבלה אחת — ממאזן הבוחן הראשוני ועד הרווח והעודפים — ותרגול מסכם על כל הקורס.",
+  description: "כל מה שלמדנו בטבלה אחת: שאלה מלאה נפתרת צעד אחר צעד, ממאזן הבוחן הראשוני ועד הרווח — ואז שני משחקים שבהם פותרים גיליון שלם בעצמכם, השני עם נעלמים.",
   backHref: COURSE_HREF,
-  screens: [{ id: "worksheet", title: "גיליון רב-טורי" }],
+  screens: [
+    { id: "worksheet", title: "גיליון רב-טורי: העמודות" },
+    { id: "ws-question", title: "שאלה מלאה: שקד בע״מ" },
+    { id: "ws-solve", title: "הפתרון, עמודה אחר עמודה" },
+    { id: "ws-game", title: "המשחק: פתרו גיליון שלם" },
+    { id: "ws-game-hard", title: "משחק מתקדם: גיליון עם נעלמים" },
+  ],
   exercises: [
     {
       kind: "choice",
@@ -31,31 +27,36 @@ export const FINAL: StudyModule = {
       steps: ["מאזן הבוחן לפני ההתאמות הוא נקודת הפתיחה.", "מוסיפים לכל חשבון את ההתאמות שלו, בצד הנכון.", "התוצאה: מאזן בוחן סופי — היתרות הנכונות ל-31.12. ממנו מפצלים לתוצאתי ולמאזני."],
     },
     {
-      kind: "number",
-      id: "ronen-profit",
-      skill: "רווח השנה",
-      prompt: "בגיליון של רונן ל-2017, אחרי פקודות ההתאמה ומלאי הסגירה: מה רווח השנה?",
-      answer: RONEN_S.profit,
-      steps: [
-        `הכנסות אחרי ההתאמות: ${list(RONEN_S.income)} = ${fmt(RONEN_S.totalIncome)}.`,
-        `הוצאות אחרי ההתאמות: ${list(RONEN_S.expenses)} = ${fmt(RONEN_S.totalExpenses)}.`,
-        `רווח = ${fmt(RONEN_S.totalIncome)} − ${fmt(RONEN_S.totalExpenses)} = ${fmt(RONEN_S.profit)}.`,
-      ],
+      kind: "choice",
+      id: "worksheet-new-row",
+      skill: "חשבון חדש בגיליון",
+      prompt: "פקודת התאמה פותחת חשבון שלא היה במאזן הבוחן לפני ההתאמות — למשל ״הוצאות שכר לשלם״. מה עושים בגיליון?",
+      options: ["פותחים לו שורה חדשה, ורושמים את הסכום בעמודת ההתאמות", "רושמים אותו בשורה של ״הוצאות שכר״", "לא רושמים — הוא ייכנס בשנה הבאה", "רושמים אותו ישר בעמודות המאזני"],
+      answer: 0,
+      steps: ["כל חשבון — שורה משלו בגיליון.", "חשבון חדש נפתח מתחת לחשבונות הקיימים; בעמודה ״לפני התאמות״ אין לו יתרה.", "את הסכום רושמים בעמודת ההתאמות, ומשם הוא ממשיך למאזן הבוחן הסופי."],
     },
     {
-      kind: "journal",
-      id: "fees-unearned",
-      skill: "הכנסות מראש",
-      entry: {
-        id: "1",
-        text: `ב-1.12 התקבלו ${fmt(FEES.received)} ₪ על ${FEES.months} חודשי שירות, ונרשמו כולם כ״הכנסות משירותים״. רשמו את פקודת ההתאמה ב-31.12.`,
-        lines: [
-          { account: "הכנסות משירותים", dr: feesUnearned },
-          { account: "הכנסות משירותים מראש", cr: feesUnearned },
-        ],
-        why: `השנה עבר חודש אחד מתוך ${FEES.months}. ${FEES.months - FEES.monthsThisYear} חודשים שייכים לשנה הבאה: ${fmt(FEES.received)} × ${FEES.months - FEES.monthsThisYear}/${FEES.months} = ${fmt(feesUnearned)} — עוברים מההכנסה להתחייבות.`,
-      },
-      accounts: ["הכנסות משירותים", "הכנסות משירותים מראש", "הכנסות משירותים לקבל", "מזומן", "לקוחות"],
+      kind: "choice",
+      id: "worksheet-gap",
+      skill: "הפרש בעמודות המאזני",
+      prompt: "אחרי הפיצול לתוצאתי ולמאזני, עמודות המאזני לא מאוזנות. מה ההפרש ביניהן?",
+      options: ["רווח (או הפסד) השנה, שעוד לא נכנס לעודפים", "טעות בפקודות ההתאמה", "עודפי הפתיחה", "סך עמודת ההתאמות"],
+      answer: 0,
+      steps: ["בעמודות המאזני העודפים עדיין ביתרת הפתיחה שלהם.", "הרווח נמצא בינתיים בעמודות התוצאתי — הכנסות פחות הוצאות.", "ההפרש בעמודות המאזני הוא בדיוק הרווח. כשמוסיפים אותו לעודפים — הן מתאזנות."],
+    },
+    {
+      kind: "choice",
+      id: "worksheet-stock",
+      skill: "מלאי סגירה בגיליון",
+      prompt: "באילו עמודות מופיעים שני החשבונות של מלאי הסגירה?",
+      options: [
+        "מלאי סגירה מאזני — במאזני, בחובה; מלאי סגירה רווח או הפסד — בתוצאתי, בזכות",
+        "שניהם בתוצאתי",
+        "שניהם במאזני",
+        "מלאי סגירה מאזני — בתוצאתי, בחובה; מלאי סגירה רווח או הפסד — במאזני, בזכות",
+      ],
+      answer: 0,
+      steps: ["מלאי הסגירה המאזני הוא הסחורה שבמחסן — נכס, ממשיך לשנה הבאה: מאזני, חובה.", "הצד השני מקטין את עלות המכר — חלק מרווח והפסד: תוצאתי, זכות.", "לכן: אחד בכל קבוצת עמודות."],
     },
     {
       kind: "choice",
@@ -65,21 +66,6 @@ export const FINAL: StudyModule = {
       options: ["פירעון קרן של הלוואה", "תשלום שכר לעובדים", "שכר דצמבר שירשם כהוצאות שכר לשלם", "ריבית על הלוואה"],
       answer: 0,
       steps: ["שכר — גם זה שעוד לא שולם — וריבית הם הוצאות: הם מקטינים את הרווח.", "פירעון קרן: ח׳ הלוואה / ז׳ מזומן — נכס והתחייבות קטנים, בלי הכנסה או הוצאה.", "לכן: פירעון הקרן."],
-    },
-    {
-      kind: "journal",
-      id: "review-accrued",
-      skill: "הוצאות לשלם",
-      entry: {
-        id: "1",
-        text: "שכירות המשרד לדצמבר, 12,000 ₪, תשולם רק ב-5 בינואר. רשמו את פקודת ההתאמה ב-31.12.",
-        lines: [
-          { account: "הוצאות שכירות", dr: 12_000 },
-          { account: "הוצאות שכירות לשלם", cr: 12_000 },
-        ],
-        why: "את דצמבר כבר ניצלנו — ההוצאה שייכת השנה. הכסף עוד לא יצא, ולכן נוצר חוב: הוצאות לשלם, התחייבות.",
-      },
-      accounts: ["הוצאות שכירות", "הוצאות שכירות לשלם", "הוצאות שכירות מראש", "מזומן"],
     },
   ],
   traps: [

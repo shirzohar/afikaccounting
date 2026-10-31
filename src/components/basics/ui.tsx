@@ -448,6 +448,11 @@ export function BalanceSheetT({ s, prev, title }: { s: Statements; prev?: Statem
   );
 }
 
+/** A block of a concept screen too wide for one column (a table, a walkthrough): on a wide screen it spans both. */
+export function Wide({ children, className }: { children: ReactNode; className?: string }) {
+  return <div className={cn("[column-span:all]", className)}>{children}</div>;
+}
+
 /** A short highlighted rule. */
 export function Rule({ children }: { children: ReactNode }) {
   return <p className="rounded-xl border-s-4 border-accent bg-accent-soft px-4 py-3 text-[15.5px] font-medium text-fg">{children}</p>;

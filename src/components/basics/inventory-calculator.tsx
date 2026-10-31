@@ -12,7 +12,7 @@ import { FireTab } from "./inventory-calc-fire";
 import { LiveBar, ResultsStep, solveAll, status } from "./inventory-calc-results";
 import { build, type CalcState, emptyState, fromExample, loadState, saveState, STEP_COUNT, type Tab } from "./inventory-calc-state";
 import { TableTab } from "./inventory-calc-table";
-import { LOAD_EVENT } from "./inventory-interactive";
+import { clearPendingExample, LOAD_EVENT, pendingExample } from "./inventory-interactive";
 
 export type Update = (fn: (s: CalcState) => CalcState) => void;
 
@@ -33,7 +33,11 @@ const MODES: [Tab, string, string][] = [
 ];
 
 function Calculator() {
-  const [st, dispatch] = useReducer((s: CalcState, fn: (s: CalcState) => CalcState) => fn(s), undefined, () => loadState() ?? emptyState());
+  const [st, dispatch] = useReducer((s: CalcState, fn: (s: CalcState) => CalcState) => fn(s), undefined, () => {
+    const asked = anyExample(pendingExample() ?? "");
+    return asked ? fromExample(asked) : (loadState() ?? emptyState());
+  });
+  useEffect(clearPendingExample, []);
   const set: Update = dispatch;
   useEffect(() => saveState(st), [st]);
   useEffect(() => {

@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { createContext, type ReactNode, useContext } from "react";
-import { findScreen, lessonHref } from "@/lib/study/basics";
+import { findScreen } from "@/lib/study";
+import { lessonHref } from "@/lib/study/paths";
 
 /** The open lesson, so a link to one of its own screens moves there instead of reloading. */
 export const LessonContext = createContext<{ slug: string; jump: (screen: string) => void } | null>(null);

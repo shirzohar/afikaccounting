@@ -1,14 +1,18 @@
 import { Printer } from "lucide-react";
-import { Callout, DataTable } from "@/components/study/blocks";
+import type { ScreenContent } from "@/components/study-mode/shell";
+import { DataTable } from "@/components/study/blocks";
 import { explainPeriod, explainSolve, m, pc } from "@/lib/learn/inventory-explain";
+import { cn } from "@/lib/utils";
 import { GALYAM_GP, galyam, PRACTICE } from "@/lib/learn/inventory-examples";
 import { InventoryCalculator } from "./inventory-calculator";
-import { AnswerCheck, MiniQuiz, SortQuiz, TryInCalc } from "./inventory-interactive";
+import { AnswerCheck, SortQuiz, TryInCalc } from "./inventory-interactive";
+import { ChainChips, MoreDialog } from "./inventory-teach";
 import { TraceStepView, TraceView } from "./inventory-trace";
 import { PrintButton } from "./print-button";
-import { Card, Chapter, Rule } from "./ui";
+import { Tabs } from "./tabs";
+import { Card, KeyCard, Rule, type Step, Stepper, Wide } from "./ui";
 
-// Chapter 14's question also supplies the examples for the routine.
+// The full question (Gal-Yam) also supplies the examples for the routine.
 const G = galyam();
 const GR = G.result;
 const q = (v: number) => v.toLocaleString("he-IL", { maximumFractionDigits: 2 });
@@ -88,7 +92,7 @@ const STEPS: { title: string; what: string; how: string[]; ex: string; trap: str
     what: "ממלאים את תבנית הדוח עד הרווח הגולמי, ואז פותרים את הנעלמים.",
     how: [
       "רושמים את התבנית: מכירות נטו; עלות המכר = פתיחה + קניות נטו − סגירה; רווח גולמי.",
-      "נעלם? מחפשים משוואה אחת עם נעלם אחד (פרק 12), פותרים ומציבים בחזרה.",
+      "נעלם? מחפשים משוואה אחת עם נעלם אחד (שיעור 5), פותרים ומציבים בחזרה.",
       "עונים בדיוק על מה שנשאל — באותו ניסוח, עם יחידות (₪ / יח׳ / %).",
     ],
     ex: `מכירות = ${m(GR.cogs)} ÷ (1 − ${pc(GALYAM_GP)}) = ${m(GR.netSales)}, ומשם המחיר.`,
@@ -172,78 +176,142 @@ const TF = [
   { text: "בקביעת שווי מימוש נטו מנכים גם עלויות פרסום ושיווק.", answer: "f", why: "בפתרונות הקורס לא מנכים אותן.", ref: "IAS 2.6" },
   { text: "הנחה המותנית ביעד מכירות נרשמת כבר ברכישה אם החברה צופה לעמוד ביעד.", answer: "f", why: "יעד מכירות אינו בשליטה הבלעדית של החברה.", ref: "IAS 2.11" },
   { text: "בממוצע נע, מכירה משנה את העלות הממוצעת ליחידה.", answer: "f", why: "רק קנייה משנה את הממוצע.", ref: "IAS 2.27" },
-  { text: "FIFO תקופתי מניב בהכרח רווח גולמי גבוה יותר מממוצע תקופתי.", answer: "f", why: "תלוי במגמת המחירים — ראו פרק 6.", ref: "R33" },
+  { text: "FIFO תקופתי מניב בהכרח רווח גולמי גבוה יותר מממוצע תקופתי.", answer: "f", why: "תלוי במגמת המחירים — ראו שיעור 3.", ref: "R33" },
   { text: "מלאי שנמסר בקונסיגנציה אינו מלאי של החברה.", answer: "f", why: "הוא שלה עד המכירה ללקוח הסופי.", ref: "—" },
   { text: "שווי מימוש נטו נבחן בכל תאריך דוח כספי.", answer: "t", why: "כך קובע התקן.", ref: "IAS 2.33" },
   { text: "הורדת ערך מלאי מוכרת ברווח או הפסד רק כשהמלאי נמכר.", answer: "f", why: "היא מוכרת מיד, בתקופה שבה התרחשה.", ref: "IAS 2.34" },
   { text: "חברה יכולה להשתמש בנוסחאות עלות שונות לשני סוגי מלאי דומים באופיים ובשימוש.", answer: "f", why: "לאותו סוג מלאי — אותה נוסחה.", ref: "IAS 2.25" },
 ];
 
-// Chapter 14: the full question, solved by the same code as the calculator.
+// The full question, solved by the same code as the calculator.
 const G_STEPS = [...explainPeriod(G.period, G.result).filter((s) => s.id !== "statement"), ...explainSolve(G.solved), ...explainPeriod(G.period, G.result).filter((s) => s.id === "statement")];
 const ROUTINE: Record<string, string> = { cost: "צעד 4", qty: "צעד 5", value: "צעדים 3 ו-6", nrv: "צעד 6", statement: "צעדים 7–8" };
 
-export function InventoryExamChapters() {
-  return (
+/** The eight steps of the routine, one at a time. */
+const routineSteps: Step[] = STEPS.map((s, i) => ({
+  title: `צעד ${i + 1} · ${s.title}`,
+  body: (
     <>
-      <Chapter n={13} id="inv-exam" title="מדריך פתרון שאלת מבחן" lead="אנטומיה של שאלה, שגרה של שמונה צעדים, ומה כל ביטוי אומר">
-        <h3 className="text-lg font-semibold text-fg">אנטומיה של שאלת מלאי</h3>
-        <DataTable
-          head={["חלק בשאלה", "מה מחפשים", "למה זה חשוב"]}
-          rows={[
-            ["כותרת", "שם החברה, תאריך הקמה, תחום (יבוא, קמעונאות, ייצור)", "הוקמה השנה ← אין מלאי פתיחה; יבוא ← מכס, הובלה, נמל"],
-            ["טבלת נתונים", "רכישות ומכירות לפי תאריך, כמויות, מחירים, סימני ?", "הסדר הכרונולוגי קובע בשיטות תמידיות; ? = נעלם שצריך משוואה"],
-            ["נתונים נוספים (ממוספרים)", "הנחות, הובלה, אחסון, מימון, שווי מימוש נטו, שיעור גולמי, שיטה, עיגול, ביטוח", "כאן מתחבאות רוב הנקודות — קוראים לפני שמחשבים"],
-            ["נדרש", "מה בדיוק לחשב", "קובע איפה עוצרים"],
-          ]}
-        />
-        <p>
-          סוגי השאלות שחוזרים: (א) שאלה פתוחה בשני חלקים — הערכת מלאי, ואחר כך נעלם או ביטוח; (ב) סעיף מלאי בתוך גיליון רב-טורי — למשל &quot;עלות מלאי הסגירה 700,000, שווי מימוש נטו
-          660,000&quot; ← מלאי הסגירה 660,000, וההפרש מוסף לעלות המכר; (ג) שאלות אמריקאיות עם חישוב מאחורי כל היגד; (ד) שאלות תיאורטיות קצרות.
-        </p>
-        <h3 className="text-lg font-semibold text-fg">שגרת שמונה הצעדים</h3>
-        <Rule>מה מבקשים ← נתונים נוספים ← שיטה ← עלות לכל רכישה ← טבלת תנועות ← הערכה ושווי מימוש נטו ← דוח ונעלמים ← בדיקות סבירות</Rule>
-        <ol className="grid grid-cols-1 gap-3 md:grid-cols-2">
-          {STEPS.map((s, i) => (
-            <li key={s.title} className="card min-w-0 p-4">
-              <p className="font-semibold text-fg">
-                <span className="num text-accent">צעד {i + 1}</span> · {s.title}
-              </p>
-              <p className="mt-1.5 text-sm text-fg/90">{s.what}</p>
-              <p className="mt-2 text-xs font-semibold text-muted">מה עושים, בפועל:</p>
-              <ul className="mt-1 list-inside list-disc space-y-1 text-[13.5px] text-fg/90">
-                {s.how.map((h) => (
-                  <li key={h}>{h}</li>
-                ))}
-              </ul>
-              <p className="mt-1.5 text-[13px] text-muted">
-                <strong className="text-fg/80">דוגמה:</strong> {s.ex}
-              </p>
-              <p className="mt-1 text-[13px] text-danger">
-                <strong>טעות נפוצה:</strong> <span className="text-fg/85">{s.trap}</span>
-              </p>
-            </li>
-          ))}
-        </ol>
-        <h3 className="text-lg font-semibold text-fg">איך קוראים &quot;נתונים נוספים&quot;</h3>
-        <DataTable head={["הביטוי בשאלה", "המשמעות", "הפעולה"]} rows={PHRASES} />
-        <Callout kind="tip" title="ניהול זמן וניקוד">
-          <ul className="list-inside list-disc space-y-1">
-            <li>שאלת מלאי פתוחה שווה בדרך כלל רבע מהמבחן או קצת יותר — אל תיתקעו על סעיף אחד.</li>
-            <li>כתבו את הנוסחה לפני המספרים, ורשמו כל הנחה שהנחתם (עיגול, סיווג) — מקבלים ניקוד על היגיון.</li>
-            <li>נעלם תוקע? המשיכו בדוח עם תא ריק וחזרו אליו — משוואה אחרת תפתור אותו.</li>
-          </ul>
-        </Callout>
-        <MiniQuiz
-          chapter="exam"
-          items={[
-            { q: "מה קוראים ראשון בשאלת מלאי?", options: ["את טבלת הרכישות", "את ה״נדרש״", "את שם החברה", "את הנתון האחרון"], answer: 1, why: "קודם יודעים מה מחפשים — ואז אוספים רק מה שצריך." },
-            { q: "״אם החברה תמכור מעל 5,000 יח' תקבל 15% הנחה״. מה עושים בעת הרכישה?", options: ["מנכים 15%", "לא מנכים", "מנכים חצי", "רושמים הכנסה"], answer: 1, why: "יעד מכירות אינו בשליטת החברה." },
-          ]}
-        />
-      </Chapter>
+      <p className="font-medium text-fg">{s.what}</p>
+      <ul className="space-y-1.5">
+        {s.how.map((h) => (
+          <li key={h} className="rounded-lg bg-surface-2/70 px-3 py-2 text-[14.5px]">
+            {h}
+          </li>
+        ))}
+      </ul>
+      <p className="text-[14px] text-muted">
+        <strong className="text-fg/80">דוגמה:</strong> {s.ex}
+      </p>
+      <p className="rounded-lg border border-danger/30 bg-danger/5 px-3 py-2 text-[14px]">
+        <strong className="text-danger">טעות נפוצה:</strong> {s.trap}
+      </p>
+    </>
+  ),
+}));
 
-      <Chapter n={14} id="inv-fullexam" title="שאלה מלאה ברמת בחינה, צעד אחר צעד" lead='חברת "גל-ים" — כל הנושאים בשאלה אחת'>
+/** The phrases of "additional data", in four small groups rather than one long table. */
+const PHRASE_GROUPS: [string, number[]][] = [
+  ["הנחות ומימון", [0, 1, 2]],
+  ["הובלה, מכס, מע״מ ואחסון", [3, 4, 5, 6, 7, 8]],
+  ["מדידה וחילוץ", [9, 10, 11]],
+  ["ביטוח, הקמה, עיגול ובעלות", [12, 13, 14, 15]],
+];
+const phraseSteps: Step[] = PHRASE_GROUPS.map(([title, rows]) => ({
+  title,
+  body: (
+    <ul className="space-y-2">
+      {rows.map((r) => {
+        const [phrase, meaning, action] = PHRASES[r];
+        return (
+          <li key={phrase} className="rounded-xl border border-line bg-surface px-3.5 py-2.5">
+            <p className="font-semibold text-fg">{phrase}</p>
+            <p className="mt-0.5 text-[14px] text-muted">{meaning}</p>
+            <p className="mt-1 text-[14.5px] text-fg">← {action}</p>
+          </li>
+        );
+      })}
+    </ul>
+  ),
+}));
+
+/** The full question's solution, a step at a time, each marked with its step of the routine. */
+const solveSteps: Step[] = G_STEPS.map((s) => {
+  const routine = s.id.startsWith("solve") ? "צעד 7 — הנעלם" : ROUTINE[s.id];
+  return {
+    title: s.title,
+    body: <TraceStepView s={{ ...s, title: routine ? `בשגרה: ${routine}` : "" }} />,
+  };
+});
+
+/** The four parts of an exam question, as a question would lay them out. */
+const ANATOMY: { part: string; what: string; why: string; tone: string }[] = [
+  { part: "כותרת", what: "״חברת גל-ים הוקמה ב-1.1.2025 ומייבאת…״", why: "הוקמה השנה ← אין מלאי פתיחה; יבוא ← מכס, הובלה, נמל.", tone: "border-line-strong" },
+  { part: "טבלת נתונים", what: "רכישות ומכירות לפי תאריך — ולפעמים סימן ?", why: "הסדר קובע בשיטות תמידיות; ? = נעלם שצריך משוואה.", tone: "border-accent/50" },
+  { part: "נתונים נוספים", what: "1. הנחה… 2. הובלה… 3. שווי מימוש נטו…", why: "כאן מתחבאות רוב הנקודות — קוראים לפני שמחשבים.", tone: "border-amber-500/60" },
+  { part: "נדרש", what: "״חשבו את מלאי הסגירה ואת…״", why: "קובע מה לחשב — ואיפה לעצור.", tone: "border-success/50" },
+];
+
+/** The concept screens of lesson 6: an exam question, the routine, the phrases, a full question solved, and the calculator. */
+export const EXAM_SCREENS: Record<string, ScreenContent> = {
+  "inv-exam": {
+    lead: "שאלת מלאי בנויה מארבעה חלקים: כותרת, טבלת נתונים, נתונים נוספים ו״נדרש״. רוב הנקודות מתחבאות בנתונים הנוספים.",
+    body: (
+      <>
+        <Wide>
+          <ol className="space-y-2 rounded-2xl border border-line bg-surface p-3" aria-label="חלקי שאלת מלאי">
+            {ANATOMY.map((a, i) => (
+              <li key={a.part} className={cn("grid gap-1 rounded-xl border-2 border-dashed p-3 sm:grid-cols-[9rem_minmax(0,1fr)_minmax(0,1fr)] sm:items-center sm:gap-3", a.tone)}>
+                <span className="flex items-center gap-2 font-bold text-fg">
+                  <span className="num grid h-6 w-6 shrink-0 place-items-center rounded-full bg-accent text-[12px] text-accent-fg">{i + 1}</span>
+                  {a.part}
+                </span>
+                <span className="text-[14px] text-muted">{a.what}</span>
+                <span className="text-[14.5px] text-fg">{a.why}</span>
+              </li>
+            ))}
+          </ol>
+        </Wide>
+        <KeyCard>קוראים קודם את ה״נדרש״, אחר כך את הנתונים הנוספים — ורק אז מתחילים לחשב.</KeyCard>
+        <div className="flex flex-wrap gap-2">
+          <MoreDialog label="סוגי השאלות שחוזרים">
+            <ol className="list-inside list-[hebrew] space-y-1.5">
+              <li>שאלה פתוחה בשני חלקים — הערכת מלאי, ואחר כך נעלם או ביטוח.</li>
+              <li>סעיף מלאי בתוך גיליון רב-טורי: &quot;עלות 700,000, שווי מימוש נטו 660,000&quot; ← מלאי הסגירה 660,000, וההפרש לעלות המכר.</li>
+              <li>שאלות אמריקאיות עם חישוב מאחורי כל היגד.</li>
+              <li>שאלות תיאורטיות קצרות.</li>
+            </ol>
+          </MoreDialog>
+          <MoreDialog label="ניהול זמן וניקוד">
+            <ul className="list-inside list-disc space-y-1.5">
+              <li>שאלת מלאי פתוחה שווה בדרך כלל רבע מהמבחן — אל תיתקעו על סעיף אחד.</li>
+              <li>כתבו נוסחה לפני המספרים, ורשמו כל הנחה שהנחתם — מקבלים ניקוד על היגיון.</li>
+              <li>נעלם תוקע? המשיכו בדוח עם תא ריק — משוואה אחרת תפתור אותו.</li>
+            </ul>
+          </MoreDialog>
+        </div>
+      </>
+    ),
+  },
+  "inv-routine": {
+    lead: "שגרה של שמונה צעדים, באותו סדר בכל שאלה: מה מבקשים, מה נתון, באיזו שיטה — ורק אז מחשבים.",
+    body: (
+      <>
+        <Wide>
+          <ChainChips items={STEPS.map((s) => s.title)} />
+        </Wide>
+        <Stepper label="שגרת שמונה הצעדים" steps={routineSteps} />
+      </>
+    ),
+  },
+  "inv-phrases": {
+    lead: "כל ביטוי ב״נתונים נוספים״ אומר משהו מדויק. מזהים אותו — והחישוב כמעט כותב את עצמו.",
+    body: <Stepper label="הביטויים, לפי נושא" steps={phraseSteps} />,
+  },
+  "inv-fullexam": {
+    lead: "שאלה אחת שמכסה הכול: שני ספקים, הנחה, מכס, מימון, ממוצע נע, שווי מימוש נטו — ומחיר חסר. נסו לפתור לבד לפני המסך הבא.",
+    body: (
+      <>
         <Card title="השאלה">
           <p>חברת &quot;גל-ים&quot; הוקמה ב-1.1.2025 ומנהלת מלאי לפי ממוצע משוקלל נע. שווי מימוש נטו ליחידה ב-31.12.2025: 65 ₪. שיעור הרווח הגולמי השנתי: {pc(GALYAM_GP)}.</p>
           <ul className="list-inside list-disc space-y-1 text-sm">
@@ -253,134 +321,152 @@ export function InventoryExamChapters() {
           </ul>
           <p className="font-semibold">נדרש: מלאי הסגירה בספרים, עלות המכר, ומחיר המכירה ב-10.3.</p>
         </Card>
-        <p>הפתרון שלמטה מופק מאותו קוד שמפעיל את המחשבון. ליד כל צעד — לאיזה צעד בשגרה הוא שייך, ואיזה כלל הוא מפעיל.</p>
-        <ol className="space-y-5">
-          {G_STEPS.map((s, i) => (
-            <li key={s.id + i} className="rounded-xl border border-line bg-surface p-4">
-              {ROUTINE[s.id] && <p className="mb-1 text-xs font-semibold text-accent">שגרה: {ROUTINE[s.id]}</p>}
-              {s.id.startsWith("solve") && <p className="mb-1 text-xs font-semibold text-accent">שגרה: צעד 7 — הנעלם</p>}
-              <TraceStepView s={s} n={i + 1} />
-            </li>
-          ))}
-        </ol>
+        <KeyCard>לפני שממשיכים: מה נדרש? איזה נתון נוסף משנה מה? באיזו שיטה? במסך הבא — הפתרון, צעד אחר צעד.</KeyCard>
+      </>
+    ),
+  },
+  "inv-fullexam-solve": {
+    lead: "הפתרון מופק מאותו קוד שמפעיל את המחשבון. ליד כל צעד — לאיזה צעד בשגרה הוא שייך.",
+    body: (
+      <>
+        <Stepper label="גל-ים · הפתרון" steps={solveSteps} />
         <Rule>
           מלאי סגירה בספרים: {m(G.result.closingCarrying)} ₪ · עלות המכר: {m(G.result.cogs)} ₪ · מחיר המכירה ב-10.3: {m(G.solved.values.price)} ₪.
         </Rule>
         <div className="flex flex-wrap gap-2">
           <TryInCalc id="galyam" label="פתחו את השאלה הזו במחשבון" />
         </div>
-        <MiniQuiz
-          chapter="fullexam"
-          items={[
-            { q: `למה ההנחה של ספק ב' לא נוכתה מהעלות?`, options: ["כי הרכישה קטנה", "כי היעד הוא יעד מכירות — לא בשליטת החברה", "כי שולם באשראי", "כי זה ספק מקומי"], answer: 1, why: "גם אם החברה צופה לעמוד ביעד — לא מכירים עד שהושג." },
-            { q: `למה העלות של ספק ב' היא 96% מהמחיר?`, options: ["הנחת כמות", "רכיב מימון בתנאי אשראי חריגים", "מכס", "שווי מימוש נטו"], answer: 1, why: "ההפרש מהמחיר במזומן הוא הוצאות מימון." },
-          ]}
-        />
-      </Chapter>
+      </>
+    ),
+  },
+  "inv-calc": {
+    lead: "פתרתם שאלה? הזינו את הנתונים — והמחשבון מראה את כל הדרך, צעד אחר צעד. כל דוגמה מהשיעורים נטענת אליו בלחיצה.",
+    body: (
+      <Wide>
+        <InventoryCalculator />
+      </Wide>
+    ),
+  },
+};
 
-      <Chapter n={15} id="inv-tools" title="מחשבון, מלכודות ותרגול" lead="פתרו כל שאלה — וראו את הדרך המלאה">
-        <section id="inv-calc" className="scroll-mt-32 lg:scroll-mt-24" aria-label="מחשבון מלאי">
-          <InventoryCalculator />
-        </section>
-
-        <div className="card p-5">
-          <h3 className="text-lg font-semibold text-fg">ארגז המלכודות</h3>
-          <DataTable head={["מלכודת", "מה עושים", "סעיף"]} rows={TRAPS.map(([a, b, c]) => [`✗ ${a}`, `✓ ${b}`, c])} />
-        </div>
-
-        <SortQuiz
-          id="tf"
-          title="בנק נכון / לא נכון"
-          options={[
-            ["t", "נכון"],
-            ["f", "לא נכון"],
-          ]}
-          items={TF}
-        />
-
-        <div className="card p-5">
-          <h3 className="text-lg font-semibold text-fg">תרגול עצמי</h3>
-          <p className="mt-1 text-sm text-muted">פתרו, הזינו את התשובה לבדיקה, ורק אז פתחו את הפתרון. התשובות והפתרונות מחושבים על ידי המנוע.</p>
-          <div className="mt-3 divide-y divide-line">
-            {PRACTICE.map((x, i) => (
-              <details key={x.id} className="group py-3">
-                <summary className="flex cursor-pointer list-none flex-wrap items-center gap-2 text-[15px] font-medium text-fg [&::-webkit-details-marker]:hidden">
-                  <span className="num text-accent">{i + 1}.</span>
-                  <span className="flex-1">{x.title}</span>
-                  <span className="rounded-md bg-surface-2 px-2 py-0.5 text-[11px] text-muted">{x.level}</span>
-                </summary>
-                <div className="mt-2 space-y-3">
-                  {x.prompt.map((p, j) => (
-                    <p key={j} className="text-[14.5px] text-fg/90">
-                      {p}
-                    </p>
-                  ))}
-                  <p className="text-[13px] text-muted">רמז: {x.hint}</p>
-                  {x.answers && <AnswerCheck answers={x.answers()} />}
-                  {x.statements && (
-                    <SortQuiz
-                      id={`pr:${x.id}`}
-                      options={[
-                        ["t", x.labels![0]],
-                        ["f", x.labels![1]],
-                      ]}
-                      items={x.statements.map((s) => ({ text: s.text, answer: s.answer ? "t" : "f", why: s.why }))}
-                    />
-                  )}
-                  {x.calc && <TryInCalc id={x.calc} label="פתחו במחשבון" />}
-                  {x.solution && (
-                    <details className="rounded-xl border border-line bg-surface-2/40 p-3">
-                      <summary className="cursor-pointer text-sm font-semibold text-accent">הציגו פתרון</summary>
-                      <div className="mt-3">
-                        <TraceView steps={x.solution()} />
-                      </div>
-                    </details>
-                  )}
+/** The course's reference: a printable summary sheet, the box of traps, true or false, and practice questions solved by the engine. */
+export function InventoryReference() {
+  return (
+    <Tabs
+      label="כלי עזר"
+      tabs={[
+        {
+          id: "inv-sheet",
+          label: "דף סיכום",
+          content: (
+            <section className="card print-sheet p-5" aria-labelledby="inv-sheet-title">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 id="inv-sheet-title" className="text-lg font-semibold text-fg">
+                  דף סיכום — מלאי
+                </h3>
+                <PrintButton icon={<Printer className="h-4 w-4" />} />
+              </div>
+              <div className="mt-3 grid gap-4 text-[13.5px] md:grid-cols-2">
+                <div className="space-y-1.5">
+                  <p className="font-semibold text-fg">נוסחאות</p>
+                  <p>עלות המכר = מלאי פתיחה + קניות נטו − מלאי סגירה</p>
+                  <p>רווח גולמי = מכירות נטו − עלות המכר · שיעור = רווח ÷ מכירות נטו</p>
+                  <p>ממוצע תקופתי = (עלות פתיחה + קניות) ÷ (יח׳ פתיחה + יח׳ שנקנו)</p>
+                  <p>ממוצע נע = עלות המלאי ÷ יחידות — מתעדכן רק בקנייה</p>
+                  <p>שווי מימוש נטו = מחיר מכירה − עלויות השלמה − עלויות מכירה; מלאי = הנמוך</p>
+                  <p>קמעונאית: סגירה = פתיחה + קניות − מכירות × (1 − שיעור גולמי)</p>
                 </div>
-              </details>
-            ))}
-          </div>
-        </div>
-
-        <section className="card print-sheet p-5" aria-labelledby="inv-sheet-title">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h3 id="inv-sheet-title" className="text-lg font-semibold text-fg">
-              דף סיכום — מלאי
-            </h3>
-            <PrintButton icon={<Printer className="h-4 w-4" />} />
-          </div>
-          <div className="mt-3 grid gap-4 text-[13.5px] md:grid-cols-2">
-            <div className="space-y-1.5">
-              <p className="font-semibold text-fg">נוסחאות</p>
-              <p>עלות המכר = מלאי פתיחה + קניות נטו − מלאי סגירה</p>
-              <p>רווח גולמי = מכירות נטו − עלות המכר · שיעור = רווח ÷ מכירות נטו</p>
-              <p>ממוצע תקופתי = (עלות פתיחה + קניות) ÷ (יח׳ פתיחה + יח׳ שנקנו)</p>
-              <p>ממוצע נע = עלות המלאי ÷ יחידות — מתעדכן רק בקנייה</p>
-              <p>שווי מימוש נטו = מחיר מכירה − עלויות השלמה − עלויות מכירה; מלאי = הנמוך</p>
-              <p>קמעונאית: סגירה = פתיחה + קניות − מכירות × (1 − שיעור גולמי)</p>
-            </div>
-            <div className="space-y-1.5">
-              <p className="font-semibold text-fg">שלוש שיטות במבט אחד</p>
-              <p>FIFO — נשארות הרכישות האחרונות; זהה בתקופתי ובתמידי.</p>
-              <p>ממוצע תקופתי — ממוצע אחד לשנה; תאריכי המכירות לא משנים.</p>
-              <p>ממוצע נע — טבלת יתרות; המכירה לא משנה את הממוצע.</p>
-              <p className="pt-1 font-semibold text-fg">שמונה הצעדים</p>
-              <p>נדרש · נתונים נוספים · שיטה · עלות לרכישה · טבלת תנועות · הערכה ושווי מימוש נטו · דוח ונעלמים · בדיקות</p>
-            </div>
-            <div className="space-y-1 md:col-span-2">
-              <p className="font-semibold text-fg">עשר המלכודות המובילות</p>
-              <ol className="list-inside list-decimal columns-1 gap-6 sm:columns-2">
-                {TRAPS.slice(0, 10).map(([a, b]) => (
-                  <li key={a}>
-                    {a} — {b}
-                  </li>
+                <div className="space-y-1.5">
+                  <p className="font-semibold text-fg">שלוש שיטות במבט אחד</p>
+                  <p>FIFO — נשארות הרכישות האחרונות; זהה בתקופתי ובתמידי.</p>
+                  <p>ממוצע תקופתי — ממוצע אחד לשנה; תאריכי המכירות לא משנים.</p>
+                  <p>ממוצע נע — טבלת יתרות; המכירה לא משנה את הממוצע.</p>
+                  <p className="pt-1 font-semibold text-fg">שמונה הצעדים</p>
+                  <p>נדרש · נתונים נוספים · שיטה · עלות לרכישה · טבלת תנועות · הערכה ושווי מימוש נטו · דוח ונעלמים · בדיקות</p>
+                </div>
+                <div className="space-y-1 md:col-span-2">
+                  <p className="font-semibold text-fg">עשר המלכודות המובילות</p>
+                  <ol className="list-inside list-decimal columns-1 gap-6 sm:columns-2">
+                    {TRAPS.slice(0, 10).map(([a, b]) => (
+                      <li key={a}>
+                        {a} — {b}
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              </div>
+            </section>
+          ),
+        },
+        {
+          id: "inv-traps",
+          label: "ארגז המלכודות",
+          content: <DataTable head={["מלכודת", "מה עושים", "סעיף"]} rows={TRAPS.map(([a, b, c]) => [`✗ ${a}`, `✓ ${b}`, c])} />,
+        },
+        {
+          id: "inv-tf",
+          label: "נכון / לא נכון",
+          content: (
+            <SortQuiz
+              id="tf"
+              title="בנק נכון / לא נכון"
+              options={[
+                ["t", "נכון"],
+                ["f", "לא נכון"],
+              ]}
+              items={TF}
+            />
+          ),
+        },
+        {
+          id: "inv-practice",
+          label: "שאלות לתרגול עצמי",
+          content: (
+            <div className="card p-5">
+              <p className="text-sm text-muted">שאלות ברמת בחינה: פתרו, הזינו את התשובה לבדיקה, ורק אז פתחו את הפתרון. התשובות והפתרונות מחושבים על ידי המנוע.</p>
+              <div className="mt-3 divide-y divide-line">
+                {PRACTICE.map((x, i) => (
+                  <details key={x.id} className="group py-3">
+                    <summary className="flex cursor-pointer list-none flex-wrap items-center gap-2 text-[15px] font-medium text-fg [&::-webkit-details-marker]:hidden">
+                      <span className="num text-accent">{i + 1}.</span>
+                      <span className="flex-1">{x.title}</span>
+                      <span className="rounded-md bg-surface-2 px-2 py-0.5 text-[11px] text-muted">{x.level}</span>
+                    </summary>
+                    <div className="mt-2 space-y-3">
+                      {x.prompt.map((p, j) => (
+                        <p key={j} className="text-[14.5px] text-fg/90">
+                          {p}
+                        </p>
+                      ))}
+                      <p className="text-[13px] text-muted">רמז: {x.hint}</p>
+                      {x.answers && <AnswerCheck answers={x.answers()} />}
+                      {x.statements && (
+                        <SortQuiz
+                          id={`pr:${x.id}`}
+                          options={[
+                            ["t", x.labels![0]],
+                            ["f", x.labels![1]],
+                          ]}
+                          items={x.statements.map((s) => ({ text: s.text, answer: s.answer ? "t" : "f", why: s.why }))}
+                        />
+                      )}
+                      {x.calc && <TryInCalc id={x.calc} label="פתחו במחשבון" />}
+                      {x.solution && (
+                        <details className="rounded-xl border border-line bg-surface-2/40 p-3">
+                          <summary className="cursor-pointer text-sm font-semibold text-accent">הציגו פתרון</summary>
+                          <div className="mt-3">
+                            <TraceView steps={x.solution()} />
+                          </div>
+                        </details>
+                      )}
+                    </div>
+                  </details>
                 ))}
-              </ol>
+              </div>
             </div>
-          </div>
-        </section>
-      </Chapter>
-    </>
+          ),
+        },
+      ]}
+    />
   );
 }
-

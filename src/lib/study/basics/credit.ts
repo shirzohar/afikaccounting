@@ -60,7 +60,9 @@ export const CREDIT: StudyModule = {
     { id: "cl-specific", title: "הפרשה ספציפית וכללית" },
     { id: "cl-recovery", title: "מסיחים וחוב שחזר" },
     { id: "cl-exam", title: "שאלה ברמת בחינה: גלבוע בע״מ" },
+    { id: "cl-calc", title: "מחשבון: בדקו את התשובה שלכם" },
   ],
+  tools: [{ screen: "cl-calc", label: "מחשבון הפסדי אשראי" }],
   exercises: [
     journal(
       "first-allowance",

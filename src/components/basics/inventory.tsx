@@ -1,15 +1,17 @@
+import { Factory, Flame, Package, Ship } from "lucide-react";
 import type { ReactNode } from "react";
+import type { ScreenContent } from "@/components/study-mode/shell";
+import { ScreenLink } from "@/components/study-mode/screen-link";
 import { Callout, DataTable } from "@/components/study/blocks";
 import { type Entry } from "@/lib/learn/basics";
 import { entriesFor, purchaseCost, statement, valuatePeriod } from "@/lib/learn/inventory";
-import { explainCosts } from "@/lib/learn/inventory-explain";
 import { DAF, DISCOUNT_EXCESS, DISCOUNT_WHOLE, FINANCING, LEHAVA, SHEMESH } from "@/lib/learn/inventory-examples";
 import { ROW_LABEL, solveTable, TABLE_ROWS } from "@/lib/learn/inventory-solver";
-import { InventoryExamChapters } from "./inventory-exam";
-import { type FillData, FormulaLab, MiniQuiz, SoldSlider, SortQuiz, SystemSwitch, TableFill, TryInCalc } from "./inventory-interactive";
-import { InventoryMethodChapters } from "./inventory-methods";
-import { GrossProfitStatementView, TraceStepView } from "./inventory-trace";
-import { Card, Chapter, Money, Rule, Term } from "./ui";
+import { cn } from "@/lib/utils";
+import { type FillData, FormulaLab, SoldSlider, SortQuiz, SystemSwitch, TableFill, TryInCalc } from "./inventory-interactive";
+import { MoreDialog, Sorted, Story } from "./inventory-teach";
+import { GrossProfitStatementView } from "./inventory-trace";
+import { Card, KeyCard, Money, Rule, type Step, Stepper, Term, Wide } from "./ui";
 
 const LEH = valuatePeriod(LEHAVA, "fifo");
 const LEH_P = valuatePeriod(LEHAVA, "fifo", { system: "periodic" });
@@ -32,24 +34,67 @@ const DAF_FILL: FillData = {
   rolls: DAF.years.slice(1).map((_, i) => ({ from: i, to: i + 1 })),
 };
 
-const SHEMESH_R = valuatePeriod(SHEMESH, "fifo");
+const SHEMESH_COST = valuatePeriod(SHEMESH, "fifo").costs[0];
 const WHOLE = purchaseCost(DISCOUNT_WHOLE);
 const EXCESS = purchaseCost(DISCOUNT_EXCESS);
 const FIN = purchaseCost(FINANCING);
 
-const TERMS: { term: string; def: string; ex: ReactNode; home: "מאזן" | "רווח או הפסד" | "—" }[] = [
-  { term: "מלאי", def: "נכס שמוחזק למכירה, בתהליך ייצור למכירה, או חומרים שייצרכו בייצור.", ex: "הערכות שעל המדף בחנות להבה.", home: "מאזן" },
-  { term: "מלאי פתיחה", def: "המלאי בתחילת השנה — הסגירה של השנה הקודמת.", ex: "בחברה שהוקמה השנה: אפס.", home: "רווח או הפסד" },
-  { term: "קניות", def: "עלות הסחורה שנקנתה השנה (בשיטה תקופתית).", ex: <>10 ערכות × 50 = <Money v={LEH.purchasesCost} /></>, home: "רווח או הפסד" },
-  { term: "מלאי סגירה", def: "מה שנשאר בסוף השנה, לפי ספירה והערכה כספית.", ex: <>4 ערכות × 50 = <Money v={LEH.closingCarrying} /></>, home: "מאזן" },
-  { term: "עלות המכר", def: "העלות של מה שנמכר בלבד: פתיחה + קניות − סגירה.", ex: <><Money v={LEH.cogs} /> — 6 ערכות</>, home: "רווח או הפסד" },
-  { term: "מכירות נטו", def: "מכירות פחות הנחות והחזרות ללקוחות.", ex: <>6 × 150 = <Money v={LEH.netSales} /></>, home: "רווח או הפסד" },
-  { term: "רווח גולמי", def: "מכירות נטו פחות עלות המכר.", ex: <Money v={LEH.grossProfit} />, home: "רווח או הפסד" },
-  { term: "שיעור רווח גולמי", def: "רווח גולמי ÷ מכירות נטו — מחושב על המכירות, לא על העלות.", ex: <><Money v={LEH.grossProfit} plain /> ÷ <Money v={LEH.netSales} plain /> = {Math.round(LEH.gpPct * 10000) / 100}%</>, home: "—" },
-  { term: "עלות", def: "מחיר רכישה, ועוד מה שהביא את המלאי למיקומו ולמצבו, פחות הנחות.", ex: "מחיר + מכס + הובלה פנימה − הנחה.", home: "—" },
-  { term: "שווי מימוש נטו", def: "מחיר המכירה הצפוי, פחות עלויות השלמה ועלויות המכירה.", ex: "נתון בשאלה — למשל 142 ₪ ליחידה.", home: "—" },
-  { term: "שווי הוגן", def: "המחיר בעסקה רגילה בין משתתפי שוק — מושג אחר, לא שווי מימוש נטו.", ex: "מופיע לפעמים בשאלה כמסיח.", home: "—" },
+type TermCard = { term: string; def: string; ex: ReactNode; home: "מאזן" | "רווח או הפסד" | "—" };
+
+/** The vocabulary in three small groups, so it is met a few words at a time. */
+const TERM_GROUPS: { title: string; terms: TermCard[] }[] = [
+  {
+    title: "מה יש במחסן",
+    terms: [
+      { term: "מלאי", def: "נכס שמוחזק למכירה, בתהליך ייצור למכירה, או חומרים שייצרכו בייצור.", ex: "הערכות שעל המדף.", home: "מאזן" },
+      { term: "מלאי פתיחה", def: "המלאי בתחילת השנה — הסגירה של השנה הקודמת.", ex: "החנות נפתחה השנה: אפס.", home: "רווח או הפסד" },
+      { term: "קניות", def: "עלות הסחורה שנקנתה השנה (בשיטה תקופתית).", ex: <>10 ערכות × 50 = <Money v={LEH.purchasesCost} /></>, home: "רווח או הפסד" },
+      { term: "מלאי סגירה", def: "מה שנשאר בסוף השנה, לפי ספירה והערכה כספית.", ex: <>4 ערכות × 50 = <Money v={LEH.closingCarrying} /></>, home: "מאזן" },
+    ],
+  },
+  {
+    title: "מה נמכר, וכמה הרווחנו",
+    terms: [
+      { term: "עלות המכר", def: "העלות של מה שנמכר בלבד: פתיחה + קניות − סגירה.", ex: <><Money v={LEH.cogs} /> — 6 ערכות</>, home: "רווח או הפסד" },
+      { term: "מכירות נטו", def: "מכירות פחות הנחות והחזרות ללקוחות.", ex: <>6 × 150 = <Money v={LEH.netSales} /></>, home: "רווח או הפסד" },
+      { term: "רווח גולמי", def: "מכירות נטו פחות עלות המכר.", ex: <Money v={LEH.grossProfit} />, home: "רווח או הפסד" },
+      {
+        term: "שיעור רווח גולמי",
+        def: "רווח גולמי ÷ מכירות נטו — על המכירות, לא על העלות.",
+        ex: <><Money v={LEH.grossProfit} plain /> ÷ <Money v={LEH.netSales} plain /> = {Math.round(LEH.gpPct * 10000) / 100}%</>,
+        home: "—",
+      },
+    ],
+  },
+  {
+    title: "כמה זה שווה",
+    terms: [
+      { term: "עלות", def: "מחיר רכישה, ועוד מה שהביא את המלאי למיקומו ולמצבו, פחות הנחות.", ex: "מחיר + מכס + הובלה פנימה − הנחה.", home: "—" },
+      { term: "שווי מימוש נטו", def: "מחיר המכירה הצפוי, פחות עלויות השלמה ועלויות המכירה.", ex: "נתון בשאלה — למשל 142 ₪ ליחידה.", home: "—" },
+      { term: "שווי הוגן", def: "המחיר בעסקה רגילה בין משתתפי שוק — מושג אחר, לא שווי מימוש נטו.", ex: "מופיע לפעמים בשאלה כמסיח.", home: "—" },
+    ],
+  },
 ];
+
+const termSteps: Step[] = TERM_GROUPS.map((g) => ({
+  title: g.title,
+  body: (
+    <ul className="grid gap-2 sm:grid-cols-2">
+      {g.terms.map((t) => (
+        <li key={t.term} className="rounded-xl border border-line bg-surface p-3.5">
+          <div className="flex items-start justify-between gap-2">
+            <p className="font-semibold text-fg">{t.term}</p>
+            {t.home !== "—" && (
+              <span className={cn("shrink-0 rounded-md px-2 py-0.5 text-[11px] font-bold", t.home === "מאזן" ? "bg-accent text-accent-fg" : "bg-fg text-surface")}>{t.home}</span>
+            )}
+          </div>
+          <p className="mt-1 text-[14px] text-fg/85">{t.def}</p>
+          <p className="mt-1.5 text-[13px] text-muted">בלהבה: {t.ex}</p>
+        </li>
+      ))}
+    </ul>
+  ),
+}));
 
 const COST_ITEMS = [
   { text: "מחיר הרכישה מהספק", answer: "in", why: "הבסיס של עלות הרכישה.", ref: "IAS 2.11" },
@@ -66,271 +111,416 @@ const COST_ITEMS = [
   { text: "תוספת המחיר על תשלום דחוי בתנאי אשראי חריגים", answer: "out", why: "רכיב מימון — הוצאות מימון, לא עלות מלאי.", ref: "IAS 2.18" },
 ];
 
-export function InventoryChapters() {
+/** Kits on a shelf: the sold ones taken away, the rest still there — the whole idea in one picture. */
+function Shelf({ bought, sold }: { bought: number; sold: number }) {
   return (
-    <>
-      <Chapter n={1} id="inv-idea" title="הרעיון: מה שלא נמכר — לא הוצאה של השנה" lead="עיקרון ההקבלה, במספרים של חנות קטנה">
-        <Card title="מלאי ותקן IAS 2 — במה עוסק הדף">
-          <p>
-            <Term he="מלאי" /> הוא סחורה שהעסק מחזיק כדי למכור — או חומרים שיהפכו למוצר שיימכר. התקן הבינלאומי <Term he="IAS 2 (מלאי)" /> עונה על ארבע שאלות: מה
-            נחשב מלאי; באיזו עלות רושמים אותו כשקונים; איך מודדים אותו בסוף השנה — לפי <strong>הנמוך מבין העלות לבין שווי המימוש נטו</strong>; ומתי העלות הופכת
-            להוצאה — בעלות המכר, כשהסחורה נמכרת.
-          </p>
-          <p>הדף בנוי בהדרגה: קודם הבסיס התיאורטי, ורק אחריו החישוב המעשי.</p>
-          <ol className="list-inside list-decimal space-y-1 text-[14.5px]">
-            <li>הרעיון והמונחים, ושתי שיטות הרישום (פרקים 1–4).</li>
-            <li>מה נכנס לעלות המלאי לפי התקן (פרק 5).</li>
-            <li>החישוב: FIFO, ממוצע משוקלל, שווי מימוש נטו ומה נספר כמלאי (פרקים 6–11).</li>
-            <li>חילוץ נעלמים, ושאלת מבחן מלאה עם מחשבון (פרקים 12–15).</li>
-          </ol>
-        </Card>
-        <Callout kind="tip" title="חברה קמעונאית, לא יצרנית">
-          <p>
-            בקורסים האקדמיים שבהם נבחנים על IAS 2, השאלות עוסקות כמעט תמיד ב<strong>חברה קמעונאית</strong>: חברה שקונה סחורה מוכנה ומוכרת אותה כמו שהיא. לכן בדף הזה
-            מתמקדים בחברה קמעונאית — העלות שלה היא עלות הרכישה ועוד מה שהביא את הסחורה למחסן.
-          </p>
-          <p>
-            כדאי בכל זאת להכיר את המושגים של <strong>חברה יצרנית</strong>, כי הם מופיעים בתקן ולפעמים בשאלות תיאורטיות: לעלות הרכישה מתווספות <Term he="עלויות המרה" /> —
-            עבודה ישירה ו<Term he="תקורות ייצור" />. תקורה <strong>משתנה</strong> (למשל חשמל של המכונות) מוקצית לפי הייצור בפועל; תקורה <strong>קבועה</strong> (למשל
-            שכירות המפעל) מוקצית לפי <strong>רמת ייצור רגילה</strong> — ואם ייצרו פחות מהרגיל, החלק שלא הוקצה הוא הוצאה של התקופה ולא עלות המלאי (IAS 2.12–13). תקורות
-            הנהלה כלליות ועלויות מכירה לא נכנסות לעלות בשום מקרה.
-          </p>
-        </Callout>
+    <div className="flex flex-wrap gap-1.5" role="img" aria-label={`${bought} ערכות: ${sold} נמכרו, ${bought - sold} על המדף`}>
+      {Array.from({ length: bought }, (_, i) => (
+        <span
+          key={i}
+          className={cn(
+            "grid h-9 w-9 place-items-center rounded-lg text-[11px] font-bold",
+            i < sold ? "border-2 border-dashed border-line-strong text-subtle" : "bg-accent text-accent-fg shadow-[0_6px_14px_-8px_var(--accent)]",
+          )}
+        >
+          {i < sold ? "נמכר" : <Package className="h-4 w-4" aria-hidden />}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+/** One purchase's cost built line by line: each step adds a line to the bill, or sets it aside, with the reason. */
+const costSteps: Step[] = SHEMESH_COST.lines.map((l, i) => {
+  const so = SHEMESH_COST.lines.slice(0, i + 1);
+  const total = so.filter((x) => x.included).reduce((s, x) => s + x.amount, 0);
+  const out = so.filter((x) => !x.included);
+  return {
+    title: (
+      <span className="flex flex-wrap items-center gap-2">
+        {l.label}
+        <span className={cn("rounded-full px-2.5 py-0.5 text-[12.5px] font-bold", l.included ? (l.amount < 0 ? "bg-accent-soft text-accent" : "bg-success/15 text-success") : "bg-danger/10 text-danger")}>
+          {l.included ? (l.amount < 0 ? "מנוכה" : "נכנס לעלות") : "בחוץ"}
+        </span>
+      </span>
+    ),
+    body: (
+      <>
         <p>
-          חנות הנרות &quot;להבה&quot; קנתה 10 ערכות נרות ב-50 ₪ ליחידה ומכרה 6 מהן ב-150 ₪ ליחידה, הכול במזומן. כמה הרוויחה? יש שתי דרכים לענות — ורק אחת נכונה.
+          <Money v={Math.abs(l.amount)} /> — {l.reason ?? "הבסיס: כמות × מחיר."}
         </p>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <Card title="✗ הדרך השגויה" className="border-danger/40">
+        <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,14rem)]">
+          <div className="rounded-xl border border-line bg-surface p-3">
+            <p className="mb-1.5 text-[13px] font-semibold text-muted">העלות עד עכשיו</p>
+            <ul className="space-y-1 text-[14px]">
+              {so
+                .filter((x) => x.included)
+                .map((x) => (
+                  <li key={x.label} className="flex justify-between gap-3">
+                    <span className="min-w-0">{x.label}</span>
+                    <Money v={x.amount} plain />
+                  </li>
+                ))}
+            </ul>
+            <p className="mt-2 flex justify-between gap-3 border-t-2 border-fg/70 pt-1.5 text-[14.5px] font-bold">
+              <span>סה״כ</span>
+              <Money v={total} plain />
+            </p>
+          </div>
+          {out.length > 0 && (
+            <div className="rounded-xl border-2 border-dashed border-danger/30 p-3">
+              <p className="mb-1.5 text-[13px] font-semibold text-danger">נשאר בחוץ</p>
+              <ul className="space-y-1 text-[14px]">
+                {out.map((x) => (
+                  <li key={x.label}>{x.label}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+        {i === SHEMESH_COST.lines.length - 1 && (
+          <Rule>
+            עלות המאווררים: <Money v={SHEMESH_COST.total} /> — <Money v={SHEMESH_COST.perUnit} /> ליחידה.
+          </Rule>
+        )}
+      </>
+    ),
+  };
+});
+
+const discountSteps: Step[] = [
+  {
+    title: "א. על כל הרכישה",
+    body: (
+      <>
+        <p>&quot;5% הנחה ברכישה של מעל 800 יחידות&quot; — וקנינו 1,000 יח׳ ב-20 ₪. עברנו את הסף, אז ההנחה חלה על <strong>כל</strong> היחידות:</p>
+        <Rule>
+          הנחה: <Money v={WHOLE.discount} /> · עלות: <Money v={WHOLE.total} />
+        </Rule>
+      </>
+    ),
+  },
+  {
+    title: "ב. רק על העודף",
+    body: (
+      <>
+        <p>&quot;5% על כל יחידה מעבר ל-800&quot; — אותה רכישה. הפעם ההנחה רק על 200 היחידות שמעל הסף:</p>
+        <Rule>
+          הנחה: <Money v={EXCESS.discount} /> · עלות: <Money v={EXCESS.total} />
+        </Rule>
+      </>
+    ),
+  },
+  {
+    title: "ג. הנחת יעד — שלוש שאלות, לפי הסדר",
+    body: (
+      <ol className="space-y-2">
+        {[
+          ["היעד כבר הושג?", "מכירים בהנחה."],
+          ["לא — אבל הוא בשליטה הבלעדית של החברה (למשל יעד רכישות), והיא צופה לעמוד בו?", "מכירים בהנחה."],
+          ["אחרת — למשל יעד מכירות, שתלוי בלקוחות", "לא מכירים, עד שהיעד הושג."],
+        ].map(([q, a], i) => (
+          <li key={q} className="flex items-start gap-2 rounded-lg bg-surface-2/70 px-3 py-2">
+            <span className="num mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-accent text-[11px] font-bold text-accent-fg">{i + 1}</span>
+            <span>
+              {q} ← <strong>{a}</strong>
+            </span>
+          </li>
+        ))}
+      </ol>
+    ),
+  },
+];
+
+/** The concept screens of lessons 1 and 2 (the idea, the systems, the statement; the cost of inventory) and the overview of lesson 3. */
+export const INVENTORY_SCREENS: Record<string, ScreenContent> = {
+  "inv-idea": {
+    lead: "מה שלא נמכר — לא הוצאה של השנה. רק העלות של מה שנמכר נרשמת כהוצאה; מה שנשאר על המדף הוא נכס: מלאי.",
+    body: (
+      <>
+        <Story icon={<Flame />} title="חנות הנרות ״להבה״">
+          <p>קנתה 10 ערכות נרות ב-50 ₪ ומכרה 6 מהן ב-150 ₪. ארבע עדיין על המדף.</p>
+          <Shelf bought={10} sold={6} />
+          <p className="font-semibold">כמה הרוויחה השנה?</p>
+        </Story>
+        <Wide className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <Card title="✗ כל הקניות כהוצאה" className="border-danger/40">
             <p>
-              כל הקניות כהוצאה: מכירות <Money v={LEH.netSales} /> פחות קניות <Money v={LEH.purchasesCost} /> ={" "}
+              <Money v={LEH.netSales} /> − <Money v={LEH.purchasesCost} /> ={" "}
               <strong className="text-danger">
                 <Money v={LEH.netSales - LEH.purchasesCost} />
               </strong>
-              .
             </p>
-            <p className="text-sm text-muted">ארבע ערכות עדיין על המדף, אבל העלות שלהן &quot;נשרפה&quot; השנה. בשנה הבאה, כשיימכרו, ההכנסה תגיע בלי העלות — והרווח שם ינופח.</p>
+            <p className="text-sm text-muted">ארבע ערכות על המדף — והעלות שלהן ״נשרפה״ כבר השנה.</p>
           </Card>
-          <Card title="✓ הדרך הנכונה" className="border-success/40">
+          <Card title="✓ רק מה שנמכר" className="border-success/40">
             <p>
-              רק העלות של מה שנמכר היא הוצאה: 6 × 50 = <Money v={LEH.cogs} />. רווח גולמי: <Money v={LEH.netSales} /> − <Money v={LEH.cogs} /> ={" "}
+              <Money v={LEH.netSales} /> − 6 × 50 ={" "}
               <strong className="text-success">
                 <Money v={LEH.grossProfit} />
               </strong>
-              .
             </p>
             <p className="text-sm text-muted">
-              ארבע הערכות שעל המדף (<Money v={LEH.closingCarrying} />) הן <Term he="נכס" /> — מלאי. ההוצאה שלהן תירשם בשנה שבה יימכרו.
+              ארבע הערכות (<Money v={LEH.closingCarrying} />) הן נכס. ההוצאה שלהן — בשנה שבה יימכרו.
             </p>
           </Card>
-        </div>
-        <p>
-          זה <Term he="עיקרון ההקבלה" />: הוצאה נרשמת באותה תקופה שבה נרשמת ההכנסה שהיא שייכת לה. הזיזו את הסליידר וראו איך אותן קניות מתחלקות בין הוצאה לנכס:
-        </p>
-        <SoldSlider />
-        <Rule>עלות המכר = מלאי פתיחה + קניות − מלאי סגירה</Rule>
-        <Callout kind="warn" title="קניות ≠ עלות המכר">
-          <p>קניות הן מה שנכנס השנה; עלות המכר היא מה שיצא (נמכר). הן שוות רק כשאין מלאי בתחילת השנה ובסופה.</p>
-        </Callout>
-        <MiniQuiz
-          chapter="idea"
-          items={[
-            { q: "חנות קנתה 20 יחידות ב-10 ₪ ומכרה 15. מה עלות המכר?", options: ["200 ₪", "150 ₪", "50 ₪", "תלוי במחיר המכירה"], answer: 1, why: "רק 15 היחידות שנמכרו: 15 × 10 = 150. חמש היחידות שנשארו הן מלאי (נכס)." },
-            { q: "למה סחורה שלא נמכרה נרשמת כנכס ולא כהוצאה?", options: ["כי היא שווה כסף בבנק", "עיקרון ההקבלה: ההוצאה שייכת לשנה שבה תימכר", "כי כך קובעת רשות המסים", "כי היא שולמה במזומן"], answer: 1, why: "ההוצאה נרשמת יחד עם ההכנסה שהיא יוצרת — בשנה שבה הסחורה תימכר." },
-          ]}
-        />
-      </Chapter>
-
-      <Chapter n={2} id="inv-terms" title="אוצר מילים בעשר דקות" lead="כל מונח — הגדרה, מספר, ואיפה הוא גר">
-        <p>לפני החישובים — המילים. ליד כל מונח: הגדרה במשפט, דוגמה מחנות להבה, והדוח שבו הוא מופיע.</p>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {TERMS.map((t) => (
-            <div key={t.term} className="card min-w-0 p-4">
-              <div className="flex items-start justify-between gap-2">
-                <p className="font-semibold text-fg">{t.term}</p>
-                {t.home !== "—" && <span className={t.home === "מאזן" ? "shrink-0 rounded-md bg-accent px-2 py-0.5 text-[11px] font-bold text-accent-fg" : "shrink-0 rounded-md bg-fg px-2 py-0.5 text-[11px] font-bold text-surface"}>{t.home}</span>}
-              </div>
-              <p className="mt-1 text-sm text-fg/85">{t.def}</p>
-              <p className="mt-1.5 text-[13px] text-muted">דוגמה: {t.ex}</p>
+        </Wide>
+        <KeyCard>
+          הוצאה נרשמת יחד עם ההכנסה שהיא יצרה. זה <Term he="עיקרון ההקבלה" />.
+        </KeyCard>
+        <p>הזיזו את הסליידר — אותן קניות, ומה שזז הוא רק החלוקה בין הוצאה לנכס:</p>
+        <Wide>
+          <SoldSlider />
+        </Wide>
+      </>
+    ),
+  },
+  "inv-ias2": {
+    lead: "התקן IAS 2 עונה על ארבע שאלות — וכל אחת מהן נלמדת בקורס בשיעור משלה.",
+    body: (
+      <>
+        <Wide className="grid gap-2 sm:grid-cols-2">
+          {(
+            [
+              ["מה נחשב מלאי?", "סחורה שמחזיקים כדי למכור.", "inv-count"],
+              ["באיזו עלות רושמים?", "מחיר, ועוד מה שהביא את הסחורה למחסן.", "inv-cost"],
+              ["כמה הוא שווה בסוף השנה?", "הנמוך מבין העלות לשווי המימוש נטו.", "inv-nrv"],
+              ["מתי העלות הופכת להוצאה?", "כשהסחורה נמכרת — בעלות המכר.", "inv-cogs"],
+            ] as const
+          ).map(([q, a, screen], i) => (
+            <div key={q} className="rounded-xl border border-line bg-surface p-3.5">
+              <p className="flex items-center gap-2 font-semibold text-fg">
+                <span className="num grid h-6 w-6 shrink-0 place-items-center rounded-full bg-accent text-[12px] font-bold text-accent-fg">{i + 1}</span>
+                {q}
+              </p>
+              <p className="mt-1 text-[14.5px] text-fg/85">{a}</p>
+              <p className="mt-1.5 text-[13px] text-muted">
+                לומדים ב<ScreenLink id={screen} />
+              </p>
             </div>
           ))}
-        </div>
-        <figure className="card p-5" aria-labelledby="two-homes">
-          <figcaption id="two-homes" className="mb-3 font-semibold text-fg">
-            שני בתים למלאי הסגירה (שיטה תקופתית)
-          </figcaption>
-          <div className="grid items-stretch gap-3 md:grid-cols-[1fr_auto_1fr]">
-            <div className="rounded-xl border-2 border-accent/50 bg-accent-soft p-4">
-              <p className="text-xs font-bold text-accent">מאזן — נכס</p>
-              <p className="mt-2 font-semibold text-fg">מלאי סגירה מאזני</p>
-              <p className="mt-1 text-sm text-fg/85">מה שבמחסן ב-31.12 — עובר לשנה הבאה.</p>
-            </div>
-            <div className="grid place-items-center text-center text-sm text-muted">
-              <span aria-hidden className="text-2xl">⇄</span>
-              <span>אותו סכום, שני חשבונות</span>
-            </div>
-            <div className="rounded-xl border-2 border-fg/30 bg-surface-2 p-4">
-              <p className="text-xs font-bold text-fg">רווח או הפסד — עלות המכר</p>
-              <ul className="mt-2 space-y-1 text-sm text-fg">
-                <li>+ מלאי פתיחה (חובה)</li>
-                <li>+ קניות (חובה)</li>
-                <li>− מלאי סגירה רווח או הפסד (זכות — מקטין את ההוצאה)</li>
-              </ul>
-            </div>
-          </div>
-          <p className="mt-3 rounded-lg bg-surface-2/70 px-3 py-2 text-sm text-fg">
-            <strong>בשנה הבאה:</strong> &quot;מלאי סגירה רווח או הפסד&quot; מתאפס כמו כל חשבון תוצאתי. &quot;מלאי סגירה מאזני&quot; עובר לשנה הבאה, ומשנה שם וסיווג ל&quot;מלאי
-            פתיחה&quot; — חשבון תוצאתי בחובה, כמו הקניות.
-          </p>
-        </figure>
-        <Callout kind="warn" title="איזה מהם תוצאתי?">
-          <p>&quot;מלאי סגירה רווח או הפסד&quot; ו&quot;מלאי פתיחה&quot; — תוצאתיים. רק &quot;מלאי סגירה מאזני&quot; הוא נכס.</p>
-        </Callout>
-        <MiniQuiz
-          chapter="terms"
-          items={[
-            { q: "שיעור הרווח הגולמי מחושב כ...", options: ["רווח גולמי ÷ עלות המכר", "רווח גולמי ÷ מכירות נטו", "עלות המכר ÷ מכירות", "מכירות ÷ קניות"], answer: 1, why: "על המכירות (נטו), לא על העלות." },
-            { q: "באיזה דוח מופיע 'מלאי פתיחה'?", options: ["במאזן, כנכס", "ברווח או הפסד, בעלות המכר", "בשניהם", "באף אחד"], answer: 1, why: "בשיטה תקופתית מלאי הפתיחה הוא חלק מעלות המכר — חשבון תוצאתי בחובה." },
-          ]}
-        />
-      </Chapter>
-
-      <Chapter n={3} id="inv-systems" title="שתי שיטות רישום: תקופתי ותמידי" lead="מתי מעדכנים את המלאי — ומה נרשם בכל אירוע">
-        <p>
-          יש שתי דרכים לנהל את המלאי בספרים. ב<Term he="מלאי תקופתי" /> מעדכנים אותו פעם בשנה, לפי ספירה. ב<Term he="מלאי תמידי" /> מעדכנים אותו בכל קנייה ובכל מכירה.
-        </p>
-        <DataTable
-          head={["", "מלאי תקופתי", "מלאי תמידי"]}
-          rows={[
-            ["מתי מתעדכן המלאי", "בסוף השנה, אחרי ספירה", "בכל קנייה ומכירה"],
-            ["בקנייה", "ח' קניות / ז' ספקים (או מזומן)", "ח' מלאי / ז' ספקים (או מזומן)"],
-            ["במכירה", "ח' לקוחות / ז' מכירות", "ח' לקוחות / ז' מכירות, ובמקביל ח' עלות המכר / ז' מלאי"],
-            ["בסוף השנה", "ח' מלאי סגירה מאזני / ז' מלאי סגירה רווח או הפסד", "אין פקודת התאמה (מלבד הורדת ערך לשווי מימוש נטו)"],
-            ["יתרון", "פשוט לרישום", "ערך המלאי ידוע בכל רגע"],
-            ["חיסרון", "אין מעקב שוטף; עלות המכר ידועה רק בסוף השנה", "צריך לחשב עלות בכל מכירה"],
-          ]}
-        />
-        <p>אותה חנות להבה, באותם שלושה אירועים. החליפו שיטה ועברו בין האירועים:</p>
-        <SystemSwitch data={SYSTEMS} />
-        <Rule>שיטת הרישום משפיעה על הפקודות. שיטת הערכת העלות (FIFO או ממוצע) משפיעה על המספרים — ב-FIFO הם זהים בשתי השיטות, בממוצע לא.</Rule>
-        <Callout kind="tip" title="בשנה הבאה (תקופתי)">
+        </Wide>
+        <KeyCard icon={<Package className="h-5 w-5" />}>בשאלות המבחן החברה כמעט תמיד קמעונאית: קונה סחורה מוכנה ומוכרת אותה כמו שהיא.</KeyCard>
+        <MoreDialog label="ומה עם חברה יצרנית?">
           <p>
-            מלאי הסגירה המאזני של להבה (<Money v={LEH.closingCarrying} />) הופך למלאי הפתיחה של השנה הבאה — חשבון תוצאתי בחובה. בסוף השנה הבאה סופרים שוב, ופקודת
-            ההתאמה רושמת את הסגירה החדשה.
+            לעלות הרכישה מתווספות <Term he="עלויות המרה" /> — עבודה ישירה ו<Term he="תקורות ייצור" />.
           </p>
-        </Callout>
-        <MiniQuiz
-          chapter="systems"
-          items={[
-            { q: "בשיטה תמידית, מה רושמים במכירה בנוסף ל'ח' לקוחות / ז' מכירות'?", options: ["ח' קניות / ז' מלאי", "ח' עלות המכר / ז' מלאי", "ח' מלאי / ז' עלות המכר", "כלום"], answer: 1, why: "בכל מכירה מוציאים את העלות מהמלאי לעלות המכר." },
-            { q: "באיזו שיטה יש פקודת 'מלאי סגירה' בסוף השנה?", options: ["תקופתית", "תמידית", "בשתיהן", "באף אחת"], answer: 0, why: "בתקופתית המלאי מתעדכן רק בסוף השנה, דרך פקודת ההתאמה." },
+          <ul className="list-inside list-disc space-y-1">
+            <li>
+              תקורה <strong>משתנה</strong> (חשמל של המכונות) — לפי הייצור בפועל.
+            </li>
+            <li>
+              תקורה <strong>קבועה</strong> (שכירות המפעל) — לפי <strong>רמת ייצור רגילה</strong>. ייצרו פחות מהרגיל? החלק שלא הוקצה הוא הוצאה של התקופה (IAS 2.12–13).
+            </li>
+            <li>תקורות הנהלה כלליות ועלויות מכירה — אף פעם לא בעלות.</li>
+          </ul>
+          <p className="flex items-center gap-2 text-muted">
+            <Factory className="h-4 w-4" aria-hidden /> מופיע בעיקר בשאלות תיאורטיות.
+          </p>
+        </MoreDialog>
+      </>
+    ),
+  },
+  "inv-terms": {
+    lead: "לפני החישובים — המילים. אחת-עשרה מילים, בשלוש קבוצות קטנות.",
+    body: <Stepper label="אוצר המילים של המלאי" steps={termSteps} />,
+  },
+  "inv-homes": {
+    lead: "בשיטה תקופתית יש למלאי הסגירה שני בתים: נכס במאזן, ובאותו סכום — הקטנה של עלות המכר ברווח או הפסד.",
+    body: (
+      <>
+        <Wide className="grid items-stretch gap-3 md:grid-cols-[1fr_auto_1fr]">
+          <div className="rounded-xl border-2 border-accent/50 bg-accent-soft p-4">
+            <p className="text-xs font-bold text-accent">מאזן — נכס</p>
+            <p className="mt-2 font-semibold text-fg">מלאי סגירה מאזני</p>
+            <p className="mt-1 text-sm text-fg/85">מה שבמחסן ב-31.12 — עובר לשנה הבאה.</p>
+          </div>
+          <div className="grid place-items-center text-center text-sm text-muted">
+            <span aria-hidden className="text-2xl">⇄</span>
+            <span>אותו סכום</span>
+          </div>
+          <div className="rounded-xl border-2 border-fg/30 bg-surface-2 p-4">
+            <p className="text-xs font-bold text-fg">רווח או הפסד — עלות המכר</p>
+            <p className="mt-2 font-semibold text-fg">מלאי סגירה רווח או הפסד</p>
+            <p className="mt-1 text-sm text-fg/85">בזכות — מקטין את עלות המכר.</p>
+          </div>
+        </Wide>
+        <KeyCard>רק ״מלאי סגירה מאזני״ הוא נכס. ״מלאי סגירה רווח או הפסד״ ו״מלאי פתיחה״ — תוצאתיים.</KeyCard>
+        <MoreDialog label="ומה קורה בשנה הבאה?">
+          <p>&quot;מלאי סגירה רווח או הפסד&quot; מתאפס, כמו כל חשבון תוצאתי.</p>
+          <p>
+            &quot;מלאי סגירה מאזני&quot; עובר לשנה הבאה ומשנה שם וסיווג ל&quot;מלאי פתיחה&quot; — חשבון תוצאתי בחובה, כמו הקניות. בסוף השנה הבאה סופרים שוב, ורושמים
+            סגירה חדשה.
+          </p>
+        </MoreDialog>
+      </>
+    ),
+  },
+  "inv-systems": {
+    lead: "בשיטה תקופתית מעדכנים את המלאי פעם בשנה, לפי ספירה. בשיטה תמידית — בכל קנייה ובכל מכירה.",
+    body: (
+      <>
+        <Wide className="grid gap-3 sm:grid-cols-2">
+          <div className="rounded-xl border-2 border-line-strong bg-surface p-4">
+            <p className="font-bold text-fg">תקופתי — פעם בשנה</p>
+            <p className="mt-1 text-[14.5px] text-fg/85">במהלך השנה: ״קניות״. בסוף השנה: סופרים, ורושמים מלאי סגירה.</p>
+          </div>
+          <div className="rounded-xl border-2 border-accent/50 bg-accent-soft/50 p-4">
+            <p className="font-bold text-fg">תמידי — בכל תנועה</p>
+            <p className="mt-1 text-[14.5px] text-fg/85">בקנייה: ״מלאי״. בכל מכירה: גם ח׳ עלות המכר / ז׳ מלאי.</p>
+          </div>
+        </Wide>
+        <p>אותם שלושה אירועים של להבה. החליפו שיטה, ועברו בין האירועים:</p>
+        <Wide>
+          <SystemSwitch data={SYSTEMS} />
+        </Wide>
+        <KeyCard>השיטה משנה את הפקודות. ב-FIFO המספרים בסוף יוצאים זהים בשתיהן.</KeyCard>
+        <MoreDialog label="טבלת השוואה מלאה">
+          <DataTable
+            head={["", "מלאי תקופתי", "מלאי תמידי"]}
+            rows={[
+              ["מתי מתעדכן המלאי", "בסוף השנה, אחרי ספירה", "בכל קנייה ומכירה"],
+              ["בקנייה", "ח' קניות / ז' ספקים (או מזומן)", "ח' מלאי / ז' ספקים (או מזומן)"],
+              ["במכירה", "ח' לקוחות / ז' מכירות", "ח' לקוחות / ז' מכירות, ובמקביל ח' עלות המכר / ז' מלאי"],
+              ["בסוף השנה", "ח' מלאי סגירה מאזני / ז' מלאי סגירה רווח או הפסד", "אין פקודת התאמה (מלבד הורדת ערך לשווי מימוש נטו)"],
+              ["יתרון", "פשוט לרישום", "ערך המלאי ידוע בכל רגע"],
+              ["חיסרון", "אין מעקב שוטף; עלות המכר ידועה רק בסוף השנה", "צריך לחשב עלות בכל מכירה"],
+            ]}
+          />
+        </MoreDialog>
+      </>
+    ),
+  },
+  "inv-cogs": {
+    lead: "התבנית שמופיעה בכל שאלה: מכירות נטו, פחות עלות המכר — רווח גולמי.",
+    body: (
+      <>
+        <Wide>
+          <GrossProfitStatementView s={statement(LEH)} caption="חנות להבה — הדוח עד הרווח הגולמי" />
+        </Wide>
+        <Sorted
+          columns={[
+            { title: "מקטין את המכירות", tone: "neutral", items: ["הנחות ללקוחות", "החזרות מלקוחות"] },
+            { title: "מקטין את הקניות", tone: "neutral", items: ["הנחות מספקים", "החזרות לספקים"] },
           ]}
         />
-      </Chapter>
-
-      <Chapter n={4} id="inv-cogs" title="עלות המכר והדוח עד הרווח הגולמי" lead="התבנית שמופיעה בכל שאלה — וטבלה עם סימני שאלה">
-        <p>כך מציגים בקורס את הדוח עד הרווח הגולמי. הנחות והחזרות מלקוחות מקטינות את המכירות; הנחות והחזרות לספקים מקטינות את הקניות.</p>
-        <GrossProfitStatementView s={statement(LEH)} caption="חנות להבה — הדוח עד הרווח הגולמי" />
-        <Rule>מכירות נטו = מכירות − הנחות והחזרות ללקוחות · קניות נטו = קניות − הנחות והחזרות מספקים · רווח גולמי = מכירות נטו − עלות המכר</Rule>
-        <h3 className="text-lg font-semibold text-fg">דוגמה: דוח עם סימני שאלה, שתי שנים</h3>
-        <p>
-          חברת &quot;דף&quot; הוקמה ב-2024, ולכן מלאי הפתיחה של 2024 הוא אפס. חלק מהתאים חסרים, וצריך למלא את כולם. כך עובדים:
-        </p>
-        <ol className="list-inside list-decimal space-y-1.5">
-          <li>
-            <strong>מתחילים מהשנה הראשונה, וגומרים אותה לפני שעוברים הלאה.</strong> כך כל מספר שמחשבים כבר זמין לשנה הבאה, ולא קופצים הלוך ושוב בין השנים.
-          </li>
-          <li>
-            <strong>בכל צעד מחפשים שורה שחסר בה מספר אחד בלבד.</strong> בדוח יש ארבע משוואות: מכירות נטו, קניות נטו, עלות המכר ורווח גולמי. משוואה עם נעלם אחד —
-            פותרים; עם שניים — מחכים שמשוואה אחרת תמלא אחד מהם.
-          </li>
-          <li>
-            <strong>כשהשנה גמורה — מגלגלים.</strong> מלאי הסגירה של 2024 עובר להיות מלאי הפתיחה של 2025, וזה תמיד הצעד הראשון בשנה החדשה.
-          </li>
-          <li>
-            <strong>בודקים</strong> שכל שנה מתיישבת: מכירות נטו − עלות המכר = רווח גולמי.
-          </li>
-        </ol>
-        <p>ליד כל צעד כתוב גם <strong>למה</strong> הוא הבא בתור. לחצו &quot;צעד הבא&quot;:</p>
-        <TableFill data={DAF_FILL} />
+        <KeyCard>
+          שיעור רווח גולמי = רווח גולמי ÷ מכירות נטו — לא ÷ עלות המכר. בלהבה: <Money v={LEH.grossProfit} plain /> ÷ <Money v={LEH.netSales} plain /> ={" "}
+          {Math.round(LEH.gpPct * 10000) / 100}%.
+        </KeyCard>
+      </>
+    ),
+  },
+  "inv-daf": {
+    lead: "דוח עם סימני שאלה: שנה אחרי שנה, ובכל צעד — משוואה אחת עם נעלם אחד.",
+    body: (
+      <>
+        <p>חברת &quot;דף&quot; הוקמה ב-2024 (פתיחה אפס), וחסרים לה תאים בשתי שנים. לחצו &quot;צעד הבא&quot; — ליד כל צעד כתוב למה הוא הבא בתור:</p>
+        <Wide>
+          <TableFill data={DAF_FILL} />
+        </Wide>
+        <KeyCard>כשהשנה גמורה — מגלגלים: מלאי הסגירה של 2024 הוא מלאי הפתיחה של 2025.</KeyCard>
         <div className="flex flex-wrap gap-2">
           <TryInCalc id="daf" label="פתחו את הטבלה במחשבון" />
         </div>
-        <Callout kind="warn" title="שיעור גולמי — מהמכירות">
-          <p>
-            ב-2024: רווח גולמי <Money v={DAF_R.values[0].grossProfit!} /> ÷ מכירות נטו <Money v={DAF_R.values[0].netSales!} /> = {Math.round(DAF_R.values[0].gpPct! * 10000) / 100}%. לא
-            מחלקים בעלות המכר.
-          </p>
-        </Callout>
-        <MiniQuiz
-          chapter="cogs"
-          items={[
-            { q: "מלאי פתיחה 50, קניות נטו 300, עלות המכר 280. מה מלאי הסגירה?", options: ["30", "70", "230", "630"], answer: 1, why: "סגירה = פתיחה + קניות − עלות המכר = 50 + 300 − 280 = 70." },
-            { q: "החזרות לספקים משפיעות על...", options: ["מכירות נטו", "קניות נטו", "מלאי הפתיחה", "שום דבר"], answer: 1, why: "הן מקטינות את הקניות — ודרכן את עלות המכר." },
-          ]}
-        />
-      </Chapter>
+      </>
+    ),
+  },
 
-      <Chapter n={5} id="inv-cost" title="כמה עולה יחידה? עלות המלאי לפי IAS 2" lead="מה נכנס לעלות, מה נשאר בחוץ, ומה מנוכה">
-        <p>
-          עלות המלאי = עלויות הרכישה, ועוד עלויות ההמרה (בייצור), ועוד עלויות אחרות <strong>שהתהוו בהבאת המלאי למיקומו ולמצבו הנוכחיים</strong>. המבחן לכל עלות: האם
-          היא הביאה את הסחורה לכאן ולמצב הזה?
-        </p>
-        <DataTable
-          head={["פריט", "בעלות?", "סעיף"]}
-          rows={[
-            ["מחיר רכישה", "✓ נכלל", "11"],
-            ["מכס ומסים שאינם ניתנים להחזר", "✓ נכלל", "11"],
-            ["הובלה פנימה וטיפול", "✓ נכלל", "11"],
-            ['מע"מ בר-קיזוז', "✗ לא", "11"],
-            ["הנחות מסחריות, הנחות כמות, החזרים", "✂ מנוכה", "11"],
-            ["אחסון הכרחי לפני שלב נוסף", "✓ נכלל", "16(ב)"],
-            ["אחסון רגיל", "✗ הוצאה", "16(ב)"],
-            ["בזבוז חריג", "✗ הוצאה", "16(א)"],
-            ["תקורה מנהלתית", "✗ הוצאה", "16(ג)"],
-            ["עלויות מכירה, הובלה ללקוח, פרסום", "✗ הוצאה", "16(ד)"],
-            ["רכיב מימון באשראי חריג", "✗ הוצאות מימון", "18"],
-          ]}
-        />
-        <h3 className="text-lg font-semibold text-fg">דוגמה: בניית עלות רכישה מיובאת</h3>
-        <p>
-          חברת &quot;שמש&quot; מייבאת 2,000 מאווררים ב-80 ₪ ליחידה. הנחת כמות של 10% על כל הרכישה אם הכמות מעל 1,500. מכס 5% מהמחיר נטו (לא ניתן להחזר). הובלה ימית
-          3,000 ₪ למשלוח, הובלה מהנמל 2 ₪ ליחידה, אחסון בחנות 1 ₪ ליחידה לחודש, ומע״מ 18% בר-קיזוז.
-        </p>
-        <TraceStepView s={explainCosts(SHEMESH, SHEMESH_R)} />
-        <Rule>
-          עלות המאווררים: <Money v={SHEMESH_R.purchasesCost} /> — <Money v={SHEMESH_R.costs[0].perUnit} /> ליחידה. האחסון והמע״מ נשארים מחוץ לעלות.
-        </Rule>
-        <h3 className="text-lg font-semibold text-fg">שלושה סוגי הנחה</h3>
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-          <Card title="א. על כל הרכישה">
-            <p>&quot;5% הנחה ברכישה של מעל 800 יחידות&quot; — 1,000 יח׳ ב-20 ₪:</p>
-            <p>
-              הנחה: <Money v={WHOLE.discount} /> · עלות: <Money v={WHOLE.total} />
+  "inv-cost": {
+    lead: "עלות המלאי היא כל מה שהביא את הסחורה למקומה ולמצבה — ולא יותר.",
+    body: (
+      <>
+        <KeyCard>לכל הוצאה שואלים: האם היא הביאה את הסחורה לכאן, ולמצב הזה?</KeyCard>
+        <Wide>
+          <Sorted
+            columns={[
+              { title: "נכנס לעלות", tone: "good", items: ["מחיר הרכישה", "מכס שלא מוחזר", "הובלה פנימה וטיפול", "אחסון הכרחי לפני שלב נוסף"] },
+              { title: "מנוכה מהעלות", tone: "neutral", items: ["הנחות מסחריות והנחות כמות", "החזרים מהספק"] },
+              { title: "בחוץ — הוצאה", tone: "bad", items: ["מע״מ בר-קיזוז", "אחסון רגיל", "הובלה ללקוח, פרסום", "בזבוז חריג, תקורה מנהלית", "רכיב מימון באשראי חריג"] },
+            ]}
+          />
+        </Wide>
+        <MoreDialog label="עם סעיפי התקן">
+          <DataTable
+            head={["פריט", "בעלות?", "סעיף"]}
+            rows={[
+              ["מחיר רכישה", "✓ נכלל", "11"],
+              ["מכס ומסים שאינם ניתנים להחזר", "✓ נכלל", "11"],
+              ["הובלה פנימה וטיפול", "✓ נכלל", "11"],
+              ['מע"מ בר-קיזוז', "✗ לא", "11"],
+              ["הנחות מסחריות, הנחות כמות, החזרים", "✂ מנוכה", "11"],
+              ["אחסון הכרחי לפני שלב נוסף", "✓ נכלל", "16(ב)"],
+              ["אחסון רגיל", "✗ הוצאה", "16(ב)"],
+              ["בזבוז חריג", "✗ הוצאה", "16(א)"],
+              ["תקורה מנהלתית", "✗ הוצאה", "16(ג)"],
+              ["עלויות מכירה, הובלה ללקוח, פרסום", "✗ הוצאה", "16(ד)"],
+              ["רכיב מימון באשראי חריג", "✗ הוצאות מימון", "18"],
+            ]}
+          />
+        </MoreDialog>
+      </>
+    ),
+  },
+  "inv-shemesh": {
+    lead: "בונים עלות של רכישה שורה אחר שורה: כל שורה בחשבונית — נכנסת, מנוכה, או נשארת בחוץ.",
+    body: (
+      <>
+        <Story icon={<Ship />} title="חברת ״שמש״ מייבאת 2,000 מאווררים ב-80 ₪">
+          <p>על השולחן: הנחת כמות, מכס, שתי הובלות, אחסון בחנות ומע״מ. נעבור עליהם אחד-אחד:</p>
+        </Story>
+        <Stepper label="שמש · בניית העלות" steps={costSteps} />
+        <Callout kind="warn" title="מכס — על המחיר נטו">
+          <p>&quot;מכס X% מהמחיר נטו&quot; — על המחיר אחרי ההנחה, בלי ההובלה.</p>
+        </Callout>
+      </>
+    ),
+  },
+  "inv-discounts": {
+    lead: "הנחה מנוכה מהעלות — אבל קודם קוראים את הניסוח: על כל הרכישה, רק על העודף, או מותנית ביעד.",
+    body: <Stepper label="שלושה סוגי הנחה" steps={discountSteps} />,
+  },
+  "inv-financing": {
+    lead: "בתנאי אשראי חריגים לענף, העלות היא מחיר המזומן. ההפרש הוא הוצאות מימון — לא מלאי.",
+    body: (
+      <>
+        <Wide className="grid items-center gap-3 sm:grid-cols-[1fr_auto_1fr]">
+          <div className="rounded-xl border-2 border-line-strong bg-surface p-4 text-center">
+            <p className="text-[13px] text-muted">המחיר באשראי ״שוטף + 150״</p>
+            <p className="text-2xl font-bold text-fg">
+              <Money v={FIN.total + FIN.financing} />
             </p>
-          </Card>
-          <Card title="ב. רק על העודף">
-            <p>&quot;5% על כל יחידה מעבר ל-800&quot; — אותה רכישה:</p>
-            <p>
-              הנחה: <Money v={EXCESS.discount} /> · עלות: <Money v={EXCESS.total} />
-            </p>
-          </Card>
-          <Card title="ג. הנחת יעד מצטברת">
-            <ol className="list-inside list-decimal space-y-1 text-sm">
-              <li>היעד הושג בפועל? ← מכירים בהנחה.</li>
-              <li>אם לא: היעד בשליטה הבלעדית של החברה (למשל יעד רכישות) וגם החברה צופה לעמוד בו? ← מכירים.</li>
-              <li>אחרת (למשל יעד מכירות — תלוי בלקוחות) ← לא מכירים עד שהיעד הושג.</li>
-            </ol>
-          </Card>
-        </div>
-        <Card title="רכיב מימון (סעיף 18)">
-          <p>
-            מחיר 100 ₪ בתנאי &quot;שוטף + 150&quot;, כשבענף מקובל לשלם מהר יותר; במזומן המחיר היה 96 ₪. עלות המלאי: <Money v={FIN.total} />. ההפרש — <Money v={FIN.financing} /> —
-            הוא הוצאות מימון על פני תקופת האשראי. אם תנאי האשראי רגילים בענף — אין פיצול, והעלות היא 100 ₪.
-          </p>
-        </Card>
+          </div>
+          <span className="text-center text-xl text-muted" aria-hidden>
+            =
+          </span>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="rounded-xl border-2 border-success/50 bg-success/5 p-3 text-center">
+              <p className="text-[13px] text-muted">עלות המלאי</p>
+              <p className="text-xl font-bold text-success">
+                <Money v={FIN.total} />
+              </p>
+            </div>
+            <div className="rounded-xl border-2 border-danger/40 bg-danger/5 p-3 text-center">
+              <p className="text-[13px] text-muted">הוצאות מימון</p>
+              <p className="text-xl font-bold text-danger">
+                <Money v={FIN.financing} />
+              </p>
+            </div>
+          </div>
+        </Wide>
+        <KeyCard>במזומן המחיר היה נמוך ב-4% — וזו העלות. ההפרש הוא מחיר הכסף, לאורך תקופת האשראי.</KeyCard>
+        <p className="text-[14.5px] text-muted">ואם תנאי האשראי רגילים בענף? אין פיצול: העלות היא המחיר המלא.</p>
+      </>
+    ),
+  },
+  "inv-cost-sort": {
+    lead: "לפני התרגול של השיעור — בודקים שההבנה יושבת: לכל עלות, האם היא נכנסת למלאי, נשארת בחוץ, או מנוכה ממנו.",
+    body: (
+      <Wide>
         <SortQuiz
           id="cost-sort"
-          title="בוחן: נכלל בעלות, הוצאה, או מנוכה?"
+          title="נכלל בעלות, הוצאה, או מנוכה?"
           options={[
             ["in", "נכלל בעלות"],
             ["out", "הוצאה / לא עלות"],
@@ -338,53 +528,33 @@ export function InventoryChapters() {
           ]}
           items={COST_ITEMS}
         />
-        <Callout kind="warn" title="מכס — על המחיר נטו">
-          <p>כשכתוב &quot;מכס X% מהמחיר נטו&quot; — מחשבים אותו על המחיר אחרי ההנחה, בלי ההובלה ובלי עלויות נלוות.</p>
-        </Callout>
-        <MiniQuiz
-          chapter="cost"
-          items={[
-            { q: "הספק מבטיח 10% הנחה אם החברה תמכור השנה מעל 5,000 יח', והחברה צופה שתעמוד ביעד. מה עושים בעת הרכישה?", options: ["מנכים 10% מהעלות", "לא מנכים — יעד מכירות אינו בשליטת החברה", "מנכים 5%", "רושמים הכנסה"], answer: 1, why: "יעד שתלוי בגורמים חיצוניים לא מוכר עד שהושג בפועל." },
-            { q: "האם מע״מ בר-קיזוז נכלל בעלות המלאי?", options: ["כן", "לא"], answer: 1, why: "מס שניתן להחזר אינו עלות." },
-          ]}
-        />
-      </Chapter>
+      </Wide>
+    ),
+  },
 
-      <Chapter n={6} id="inv-formulas" title="שתי נוסחאות עלות: התמונה הגדולה" lead="כשהמחירים משתנים, צריך להחליט איזו יחידה נמכרה">
-        <p>
-          אם כל היחידות נקנו באותו מחיר — אין שאלה. אבל המחירים משתנים, ואז צריך כלל שאומר מה נמכר ומה נשאר על המדף. בקורס עובדים עם שתי נוסחאות:
-        </p>
-        <ul className="list-inside list-disc space-y-1">
-          <li>
-            <Term he="FIFO (נרי״ר)" /> — נכנס ראשון, יוצא ראשון.
-          </li>
-          <li>
-            <Term he="ממוצע משוקלל" /> — תקופתי (ממוצע אחד לשנה) או נע (ממוצע חדש אחרי כל קנייה).
-          </li>
-        </ul>
-        <Rule>LIFO (נכנס אחרון, יוצא ראשון) אסור. ולמלאי בעל אופי ושימוש דומים — אותה נוסחה.</Rule>
-        <p>
-          חנות האוזניות &quot;צליל&quot;: 1.2 — קנתה 10 יח׳ ב-20 ₪ · 12.3 — מכרה 5 ב-60 ₪ · 10.4 — קנתה 5 ב-30 ₪ · 17.8 — קנתה 6 ב-40 ₪ · 15.9 — מכרה 7 ב-100 ₪. אותם
-          נתונים, ארבע דרכי חישוב. שנו את מחירי הרכישה, או הפכו את המגמה:
-        </p>
-        <FormulaLab />
+  "inv-formulas": {
+    lead: "כשהמחירים משתנים, צריך כלל שאומר מה נמכר ומה נשאר על המדף: FIFO או ממוצע משוקלל.",
+    body: (
+      <>
+        <Wide className="grid gap-3 sm:grid-cols-2">
+          <div className="rounded-xl border-2 border-accent/50 bg-accent-soft/50 p-4">
+            <p className="font-bold text-fg">FIFO — נכנס ראשון, יוצא ראשון</p>
+            <p className="mt-1 text-[14.5px] text-fg/85">הוותיקות נמכרות קודם; על המדף נשארות האחרונות.</p>
+          </div>
+          <div className="rounded-xl border-2 border-line-strong bg-surface p-4">
+            <p className="font-bold text-fg">ממוצע משוקלל</p>
+            <p className="mt-1 text-[14.5px] text-fg/85">כל יחידה שווה לממוצע: תקופתי (אחד לשנה) או נע (חדש אחרי כל קנייה).</p>
+          </div>
+        </Wide>
+        <KeyCard>LIFO אסור. ולמלאי דומה באופיו ובשימוש — אותה נוסחה.</KeyCard>
+        <p>חנות האוזניות &quot;צליל&quot;: שלוש קניות ושתי מכירות. שנו את מחירי הרכישה, או הפכו את המגמה — ותראו את השיטות נפרדות:</p>
+        <Wide>
+          <FormulaLab />
+        </Wide>
         <div className="flex flex-wrap gap-2">
           <TryInCalc id="tzlil" label="פתחו את צליל במחשבון" />
         </div>
-        <Callout kind="warn" title="אין שיטה ש״תמיד״ נותנת רווח גבוה יותר">
-          <p>כשהמחירים עולים, FIFO נותן את הרווח הגולמי הגבוה ביותר; כשהם יורדים — את הנמוך ביותר. טענה עם &quot;בהכרח&quot; על סדר השיטות — לא נכונה.</p>
-        </Callout>
-        <MiniQuiz
-          chapter="formulas"
-          items={[
-            { q: "איזו נוסחת עלות אסורה לפי IAS 2?", options: ["FIFO", "ממוצע משוקלל תקופתי", "LIFO", "ממוצע משוקלל נע"], answer: 2, why: "התקן אינו מתיר LIFO." },
-            { q: "המחירים ירדו לאורך השנה. באיזו שיטה הרווח הגולמי הנמוך ביותר?", options: ["FIFO", "ממוצע תקופתי", "ממוצע נע", "בכולן זהה"], answer: 0, why: "ב-FIFO נמכרות קודם היחידות הוותיקות — היקרות — ולכן עלות המכר הגבוהה ביותר." },
-          ]}
-        />
-      </Chapter>
-
-      <InventoryMethodChapters />
-      <InventoryExamChapters />
-    </>
-  );
-}
+      </>
+    ),
+  },
+};

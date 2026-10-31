@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, BookOpenText, CircleCheck, ClipboardPen, RotateCcw, Star } from "lucide-react";
+import { ArrowLeft, BookOpenText, Calculator, CircleCheck, ClipboardPen, RotateCcw, Star } from "lucide-react";
 import { motion } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { maxXp, PRACTICE_GROUPS, practiceOf, statusOf, type TopicProgress, xpOf } from "@/lib/study/score";
@@ -10,9 +10,21 @@ import { cn } from "@/lib/utils";
 /**
  * The gate into a lesson, on every arrival: what it is about, the concepts it
  * goes through, the practice after them, and the way in — or, in a lesson
- * already under way, the way back to where the reader stopped.
+ * already under way, the way back to where the reader stopped. A lesson's tools (a calculator) open straight from here.
  */
-export function LessonOpening({ module: m, progress: p, onStart, onRestart }: { module: StudyModule; progress: TopicProgress; onStart: () => void; onRestart: () => void }) {
+export function LessonOpening({
+  module: m,
+  progress: p,
+  onStart,
+  onRestart,
+  onTool,
+}: {
+  module: StudyModule;
+  progress: TopicProgress;
+  onStart: () => void;
+  onRestart: () => void;
+  onTool: (screen: string) => void;
+}) {
   const items = practiceOf(m);
   const groups = PRACTICE_GROUPS.map((g) => ({ ...g, n: items.filter((it) => it.group === g).length })).filter((g) => g.n > 0);
   const started = statusOf(m, p) !== "new";
@@ -97,6 +109,11 @@ export function LessonOpening({ module: m, progress: p, onStart, onRestart }: { 
             <RotateCcw className="h-4 w-4" aria-hidden /> להתחיל מההתחלה
           </Button>
         )}
+        {m.tools?.map((t) => (
+          <Button key={t.screen} size="lg" variant="secondary" onClick={() => onTool(t.screen)}>
+            <Calculator className="h-4 w-4" aria-hidden /> ישר ל{t.label}
+          </Button>
+        ))}
       </div>
     </div>
   );

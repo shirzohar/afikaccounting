@@ -1,27 +1,27 @@
 "use client";
 
-import { ArrowLeft, Check, ChevronsLeft, CircleCheck, RotateCcw, Star } from "lucide-react";
+import { ArrowLeft, Calculator, Check, ChevronsLeft, ChevronsRight, CircleCheck, RotateCcw, Star } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { maxXp, pathStatus, type TopicProgress, xpOf } from "@/lib/study/score";
 import type { StudyModule } from "@/lib/study/types";
-import { BASICS_LESSONS, legacyHref } from "@/lib/study/basics";
 import { studyHref } from "@/lib/study";
+import { lessonHref } from "@/lib/study/paths";
 import { cn } from "@/lib/utils";
 import { updateTopic, useTopics } from "./progress-store";
-
-const SLUGS = BASICS_LESSONS.map((m) => m.slug);
 
 /**
  * The course as a path: progress on top, then one step per lesson down a line.
  * The lesson to do next opens as a spotlight panel with its concepts; the rest
  * are one row each, done lessons quieter than the ones ahead. A lesson can be
- * skipped: the spotlight moves on, and the lesson waits on the path.
+ * skipped: the spotlight moves on, and the lesson waits on the path — and the
+ * spotlight can go back to the lesson before it. A lesson's tools (a
+ * calculator) open straight from its place on the path.
  */
-export function CoursePath() {
-  const topics = useTopics(SLUGS);
-  const rows = BASICS_LESSONS.map((m) => ({ m, p: topics[m.slug], status: pathStatus(m, topics[m.slug]) }));
+export function CoursePath({ lessons }: { lessons: StudyModule[] }) {
+  const topics = useTopics(lessons.map((m) => m.slug));
+  const rows = lessons.map((m) => ({ m, p: topics[m.slug], status: pathStatus(m, topics[m.slug]) }));
   const done = rows.filter((r) => r.status === "done").length;
   const xp = rows.reduce((s, r) => s + xpOf(r.m, r.p), 0);
   const max = rows.reduce((s, r) => s + maxXp(r.m), 0);
@@ -81,7 +81,14 @@ export function CoursePath() {
                 {i < rows.length - 1 && <span className={cn("min-h-3 w-[3px] flex-1 rounded-full", isDone ? "bg-success" : "bg-line-strong")} />}
               </div>
               <div className="min-w-0 flex-1 pb-5">
-                {spotlight ? <Spotlight module={r.m} progress={r.p} started={r.status === "started"} total={rows.length} /> : <LessonRow module={r.m} progress={r.p} status={r.status} />}
+                {spotlight ? (
+                  <Spotlight module={r.m} progress={r.p} started={r.status === "started"} total={rows.length} prev={rows[i - 1]} />
+                ) : (
+                  <>
+                    <LessonRow module={r.m} progress={r.p} status={r.status} />
+                    <Tools module={r.m} className="mt-1.5 ps-4 sm:ps-5" />
+                  </>
+                )}
               </div>
             </li>
           );
@@ -92,8 +99,22 @@ export function CoursePath() {
 }
 
 /** The lesson to do next, open: what it says, the concepts in it (the ones read ticked), and the way in. */
-function Spotlight({ module: m, progress: p, started, total }: { module: StudyModule; progress: TopicProgress; started: boolean; total: number }) {
+function Spotlight({
+  module: m,
+  progress: p,
+  started,
+  total,
+  prev,
+}: {
+  module: StudyModule;
+  progress: TopicProgress;
+  started: boolean;
+  total: number;
+  /** The lesson before this one: skipped, it comes back into the spotlight; done, it opens. */
+  prev?: { m: StudyModule; status: ReturnType<typeof pathStatus> };
+}) {
   const firstUnseen = m.screens.findIndex((_, i) => !p.seen.includes(i));
+  const back = "inline-flex h-12 items-center gap-2 rounded-xl border-2 border-[#93b4ff]/60 bg-white/[0.06] px-5 text-[15px] font-bold text-[#e8eef8] transition hover:border-[#93b4ff] hover:bg-white/[0.12]";
   return (
     <section
       aria-labelledby={`lesson-${m.slug}`}
@@ -111,6 +132,16 @@ function Spotlight({ module: m, progress: p, started, total }: { module: StudyMo
           <Link href={studyHref(m.slug)} prefetch className="inline-flex h-12 items-center gap-2.5 rounded-xl bg-[#4f8bff] px-6 text-[15px] font-bold text-[#04112b] transition hover:brightness-110">
             {started ? "להמשיך מאיפה שעצרתי" : "להתחיל את השיעור"} <ArrowLeft className="h-4 w-4" aria-hidden />
           </Link>
+          {prev &&
+            (prev.status === "skipped" ? (
+              <button type="button" onClick={() => updateTopic(prev.m.slug, (q) => ({ ...q, skipped: false }))} className={back}>
+                <ChevronsRight className="h-4 w-4" aria-hidden /> חזור לשיעור הקודם
+              </button>
+            ) : (
+              <Link href={studyHref(prev.m.slug)} prefetch className={back}>
+                <ChevronsRight className="h-4 w-4" aria-hidden /> חזור לשיעור הקודם
+              </Link>
+            ))}
           <button
             type="button"
             onClick={() => updateTopic(m.slug, (q) => ({ ...q, skipped: true }))}
@@ -122,6 +153,7 @@ function Spotlight({ module: m, progress: p, started, total }: { module: StudyMo
             {xpOf(m, p)}/{maxXp(m)} XP
           </span>
         </div>
+        <Tools module={m} spotlight />
       </div>
       <div className="flex min-w-0 flex-[1_1_15rem] flex-col gap-2.5 rounded-2xl bg-white/[0.06] p-4 sm:p-5">
         <p className="text-[13px] font-semibold text-[#a9b7d1]">מה יש בשיעור</p>
@@ -144,6 +176,28 @@ function Spotlight({ module: m, progress: p, started, total }: { module: StudyMo
         </ul>
       </div>
     </section>
+  );
+}
+
+/** A lesson's tools, each a link straight to its screen — no need to go through the lesson first. */
+function Tools({ module: m, spotlight, className }: { module: StudyModule; spotlight?: boolean; className?: string }) {
+  if (!m.tools?.length) return null;
+  return (
+    <div className={cn("flex flex-wrap gap-2", className)}>
+      {m.tools.map((t) => (
+        <Link
+          key={t.screen}
+          href={lessonHref(m.slug, t.screen)}
+          prefetch
+          className={cn(
+            "inline-flex items-center gap-1.5 rounded-lg px-3 font-semibold transition",
+            spotlight ? "h-10 bg-[#fbbf24] text-[14px] text-[#3b2600] hover:brightness-105" : "h-8 bg-amber-400 text-[13px] text-amber-950 hover:bg-amber-300",
+          )}
+        >
+          <Calculator className="h-4 w-4" aria-hidden /> ישר ל{t.label}
+        </Link>
+      ))}
+    </div>
   );
 }
 
@@ -193,15 +247,15 @@ function LessonRow({ module: m, progress: p, status }: { module: StudyModule; pr
   );
 }
 
-/** The former long page's chapter links (/basics#trial) still land: on the lesson screen that holds that chapter now. */
-export function LegacyHashRedirect() {
+/** The former long page's chapter links (/basics#trial) still land: on the lesson screen that holds that chapter now. `redirects` maps each old anchor to its new address. */
+export function LegacyHashRedirect({ redirects }: { redirects: Record<string, string> }) {
   const router = useRouter();
   useEffect(() => {
     const id = decodeURIComponent(window.location.hash.slice(1));
     // An anchor that is still on this page is the browser's to scroll to.
     if (!id || document.getElementById(id)) return;
-    const to = legacyHref(id);
+    const to = redirects[id];
     if (to && !to.startsWith("#")) router.replace(to);
-  }, [router]);
+  }, [router, redirects]);
   return null;
 }

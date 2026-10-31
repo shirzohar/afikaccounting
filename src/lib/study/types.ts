@@ -23,6 +23,8 @@ export type StudyModule = {
   traps: Trap[];
   /** The golden tips on the summary card. */
   tips: string[];
+  /** Concept screens that are tools of their own (a calculator), reachable straight from the course page and the lesson's opening. */
+  tools?: { screen: string; label: string }[];
 };
 
 /** Build a whole journal entry for a transaction, from the accounts offered (the answer's, plus distractors). */

@@ -1,11 +1,14 @@
 "use client";
 
 import { ArrowLeftRight, Calculator, ChevronLeft, ChevronRight, RotateCcw } from "lucide-react";
-import { useId, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useContext, useId, useState } from "react";
+import { LessonContext } from "@/components/study-mode/screen-link";
 import { NumberInput, parseNumber } from "@/components/study/inputs";
 import { type Entry, ledger } from "@/lib/learn/basics";
 import { compareMethods, METHOD_LABEL, priceTrend, valuatePeriod } from "@/lib/learn/inventory";
 import { lehavaWith, tzlilWith } from "@/lib/learn/inventory-examples";
+import { INVENTORY_CALC, inventoryScreenHref } from "@/lib/study/inventory";
 import { cn } from "@/lib/utils";
 import { FlowStrip } from "./inventory-trace";
 import { updateProgress, useProgress } from "./store";
@@ -13,19 +16,36 @@ import { EntryView, fmt, Money, Scroller, TCard } from "./ui";
 
 export const LOAD_EVENT = "inventory:load-example";
 
+/** An example asked for before the calculator was on screen: it opens on it when it mounts, then lets it go. */
+let pending: string | undefined;
+export const pendingExample = () => pending;
+export const clearPendingExample = () => {
+  pending = undefined;
+};
+
 const btn = "inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium ring-1 ring-line transition-colors hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-[var(--ring)] disabled:opacity-40";
 
-/** Opens an example in the calculator further down the page. */
+/**
+ * Opens an example in the calculator: on this screen, it loads at once;
+ * elsewhere in the lesson, the lesson moves to the calculator's screen; anywhere
+ * else, the calculator's lesson opens there — and the calculator opens on it.
+ */
 export function TryInCalc({ id, label = "נסו במחשבון" }: { id: string; label?: string }) {
+  const lesson = useContext(LessonContext);
+  const router = useRouter();
+  const open = () => {
+    const here = document.getElementById("inv-calc");
+    if (here) {
+      window.dispatchEvent(new CustomEvent(LOAD_EVENT, { detail: { id } }));
+      return here.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+    }
+    pending = id;
+    const href = inventoryScreenHref(INVENTORY_CALC);
+    if (lesson && href.startsWith(`/study/${lesson.slug}?`)) lesson.jump(INVENTORY_CALC);
+    else router.push(href);
+  };
   return (
-    <button
-      type="button"
-      className={cn(btn, "text-accent")}
-      onClick={() => {
-        window.dispatchEvent(new CustomEvent(LOAD_EVENT, { detail: { id } }));
-        document.getElementById("inv-calc")?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
-      }}
-    >
+    <button type="button" className={cn(btn, "text-accent")} onClick={open}>
       <Calculator className="h-4 w-4" aria-hidden /> {label}
     </button>
   );
@@ -442,9 +462,13 @@ export function FifoShelf({ frames }: { frames: ShelfFrame[] }) {
       tabIndex={0}
       role="group"
       aria-label="מדף השכבות של FIFO — חצים כדי לעבור בין האירועים"
+      // Inside a lesson the arrows come here first; past either end they are left to move the lesson.
+      aria-roledescription="צעד אחר צעד"
       onKeyDown={(e) => {
-        if (e.key === "ArrowLeft") go(1);
-        if (e.key === "ArrowRight") go(-1);
+        const d = e.key === "ArrowLeft" ? 1 : e.key === "ArrowRight" ? -1 : 0;
+        if (!d || i + d < 0 || i + d >= frames.length) return;
+        e.preventDefault();
+        go(d);
       }}
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
